@@ -1,0 +1,23 @@
+tiers:
+  fast:
+    primary: {provider: ollama, model: ollama/llama3.2:3b}
+    fallback: []
+    max_tokens: 4096
+    temperature: 0.3
+
+  standard:
+    primary: {provider: ollama, model: ollama/llama3.2:3b}
+    fallback: []
+    max_tokens: 8192
+    temperature: 0.7
+
+  advanced:
+    primary: {provider: ollama, model: ollama/llama3.2:3b}
+    fallback: []
+    max_tokens: 16384
+    temperature: 0.9
+
+cost_limits:
+  per_org_daily_usd: 999.0
+  per_agent_run_usd: 999.0
+  kill_on_breach: false

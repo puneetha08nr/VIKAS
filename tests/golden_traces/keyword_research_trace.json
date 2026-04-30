@@ -1,0 +1,79 @@
+{
+  "agent_name": "keyword_research",
+  "description": "Golden trace for KeywordResearchAgent — used for regression testing",
+  "input_params": {
+    "seed_keyword": "ai marketing"
+  },
+  "mock_llm_response": "[{\"keyword\": \"ai marketing tools\", \"volume\": 8100, \"kd\": 42, \"cpc\": 4.50, \"intent\": \"commercial\"}, {\"keyword\": \"artificial intelligence marketing automation\", \"volume\": 2900, \"kd\": 38, \"cpc\": 6.20, \"intent\": \"commercial\"}, {\"keyword\": \"how to use ai for marketing\", \"volume\": 5400, \"kd\": 35, \"cpc\": 3.80, \"intent\": \"informational\"}, {\"keyword\": \"ai content marketing strategy\", \"volume\": 1900, \"kd\": 45, \"cpc\": 5.10, \"intent\": \"informational\"}, {\"keyword\": \"best ai marketing software 2024\", \"volume\": 3200, \"kd\": 40, \"cpc\": 7.30, \"intent\": \"commercial\"}]",
+  "expected_db_records": [
+    {
+      "table": "keywords",
+      "fields": {
+        "keyword": "ai marketing tools",
+        "volume": 8100,
+        "kd": 42.0,
+        "cpc": 4.50,
+        "status": "raw",
+        "source_agent": "keyword_research"
+      }
+    },
+    {
+      "table": "keywords",
+      "fields": {
+        "keyword": "artificial intelligence marketing automation",
+        "volume": 2900,
+        "kd": 38.0,
+        "cpc": 6.20,
+        "status": "raw",
+        "source_agent": "keyword_research"
+      }
+    },
+    {
+      "table": "keywords",
+      "fields": {
+        "keyword": "how to use ai for marketing",
+        "volume": 5400,
+        "kd": 35.0,
+        "cpc": 3.80,
+        "status": "raw",
+        "source_agent": "keyword_research"
+      }
+    },
+    {
+      "table": "keywords",
+      "fields": {
+        "keyword": "ai content marketing strategy",
+        "volume": 1900,
+        "kd": 45.0,
+        "cpc": 5.10,
+        "status": "raw",
+        "source_agent": "keyword_research"
+      }
+    },
+    {
+      "table": "keywords",
+      "fields": {
+        "keyword": "best ai marketing software 2024",
+        "volume": 3200,
+        "kd": 40.0,
+        "cpc": 7.30,
+        "status": "raw",
+        "source_agent": "keyword_research"
+      }
+    },
+    {
+      "table": "agent_runs",
+      "fields": {
+        "agent_name": "keyword_research",
+        "status": "success"
+      }
+    }
+  ],
+  "expected_result": {
+    "status": "success",
+    "data": {
+      "keywords_found": 5,
+      "seed": "ai marketing"
+    }
+  }
+}

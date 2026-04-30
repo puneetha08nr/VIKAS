@@ -1,0 +1,123 @@
+name: vikas
+
+services:
+
+  # ── PostgreSQL 16 + pgvector ────────────────────────────────────────────────
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vikas
+      POSTGRES_PASSWORD: vikas_dev
+      POSTGRES_DB: vikas
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vikas -d vikas"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # ── Redis 7 ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # ── FastAPI backend ──────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: ../../.env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://vikas:vikas_dev@db:5432/vikas
+      REDIS_URL: redis://redis:6379/0
+      ENV: development
+      LOG_LEVEL: DEBUG
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../../apps/api:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ── Celery worker (same image as api, different command) ─────────────────────
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.api
+    restart: unless-stopped
+    command: celery -A workers.celery_app worker --loglevel=info
+    env_file:
+      - path: ../../.env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://vikas:vikas_dev@db:5432/vikas
+      REDIS_URL: redis://redis:6379/0
+      ENV: development
+      LOG_LEVEL: DEBUG
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../../apps/api:/app
+
+  # ── Next.js frontend ─────────────────────────────────────────────────────────
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NODE_ENV: development
+      # Required for filesystem event polling inside Docker
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ../../apps/web:/app/apps/web
+      - ../../packages/shared-types:/app/packages/shared-types
+      # Named volumes keep Docker-owned dirs from being written to the host mount
+      - web_node_modules:/app/apps/web/node_modules
+      - web_next_cache:/app/apps/web/.next
+
+volumes:
+  postgres_data:
+  web_node_modules:
+  web_next_cache:

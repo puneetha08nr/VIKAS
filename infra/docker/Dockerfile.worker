@@ -1,0 +1,12 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN pip install uv
+
+COPY apps/api/pyproject.toml .
+RUN uv pip install --system -e ".[dev]" || true
+
+COPY apps/api/ .
+
+CMD ["celery", "-A", "workers.celery_app", "worker", "--loglevel=info"]

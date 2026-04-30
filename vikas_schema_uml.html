@@ -1,0 +1,365 @@
+
+<style>
+  .tbl-head { font: 500 13px "Anthropic Sans", sans-serif; fill: var(--color-text-primary); }
+  .tbl-field { font: 400 11px "Anthropic Sans", sans-serif; fill: var(--color-text-secondary); }
+  .tbl-badge { font: 500 9px "Anthropic Sans", sans-serif; }
+  .rel-label { font: 400 10px "Anthropic Sans", sans-serif; fill: var(--color-text-tertiary); }
+  .tbl-box { fill: var(--color-background-secondary); stroke: var(--color-border-primary); stroke-width: 1; rx: 6; }
+  .tbl-header { fill: var(--color-background-tertiary); stroke: var(--color-border-primary); stroke-width: 1; }
+  .rel-line { stroke: var(--color-border-secondary); stroke-width: 1; stroke-dasharray: 5 3; fill: none; }
+</style>
+<svg width="100%" viewBox="0 0 1200 1400" role="img">
+<title>Vikas database schema UML</title>
+<desc>UML-style entity relationship diagram for the Vikas platform database</desc>
+<defs>
+  <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="var(--color-border-secondary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+</defs>
+
+<!-- ────────────────────────────────────────────
+     MACRO: each table = header rect + field rows
+     Column layout: x=col_x, w=220
+     ──────────────────────────────────────────── -->
+
+<!-- ══════════════════════════════════
+     COL 1  x=30
+     ══════════════════════════════════ -->
+
+<!-- organizations  y=30 -->
+<g id="organizations">
+  <rect class="tbl-box" x="30" y="30" width="220" height="162" rx="6"/>
+  <rect class="tbl-header" x="30" y="30" width="220" height="28" rx="6"/>
+  <rect x="30" y="52" width="220" height="6" class="tbl-header"/>
+  <text class="tbl-head" x="140" y="49" text-anchor="middle">organizations</text>
+  <text class="tbl-field" x="42" y="78">id</text><text class="tbl-badge" x="210" y="78" text-anchor="end" fill="#534AB7">PK</text>
+  <text class="tbl-field" x="42" y="96">name</text>
+  <text class="tbl-field" x="42" y="114">slug</text>
+  <text class="tbl-field" x="42" y="132">settings  jsonb</text>
+  <text class="tbl-field" x="42" y="150">created_at</text>
+  <text class="tbl-field" x="42" y="168">updated_at</text>
+  <line x1="30" y1="60" x2="250" y2="60" stroke="var(--color-border-primary)" stroke-width="0.5"/>
+</g>
+
+<!-- keywords  y=240 -->
+<g id="keywords">
+  <rect class="tbl-box" x="30" y="240" width="220" height="234" rx="6"/>
+  <rect class="tbl-header" x="30" y="240" width="220" height="28" rx="6"/>
+  <rect x="30" y="262" width="220" height="6" class="tbl-header"/>
+  <text class="tbl-head" x="140" y="259" text-anchor="middle">keywords</text>
+  <text class="tbl-field" x="42" y="288">id</text><text class="tbl-badge" x="210" y="288" text-anchor="end" fill="#534AB7">PK</text>
+  <text class="tbl-field" x="42" y="306">org_id</text><text class="tbl-badge" x="210" y="306" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="42" y="324">keyword</text>
+  <text class="tbl-field" x="42" y="342">volume  int</text>
+  <text class="tbl-field" x="42" y="360">kd  float</text>
+  <text class="tbl-field" x="42" y="378">cpc  float</text>
+  <text class="tbl-field" x="42" y="396">cluster_id</text><text class="tbl-badge" x="210" y="396" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="42" y="414">status</text>
+  <text class="tbl-field" x="42" y="432">source_agent</text>
+  <text class="tbl-field" x="42" y="450">created_at</text>
+  <line x1="30" y1="270" x2="250" y2="270" stroke="var(--color-border-primary)" stroke-width="0.5"/>
+</g>
+
+<!-- keyword_clusters  y=520 -->
+<g id="keyword_clusters">
+  <rect class="tbl-box" x="30" y="520" width="220" height="162" rx="6"/>
+  <rect class="tbl-header" x="30" y="520" width="220" height="28" rx="6"/>
+  <rect x="30" y="542" width="220" height="6" class="tbl-header"/>
+  <text class="tbl-head" x="140" y="539" text-anchor="middle">keyword_clusters</text>
+  <text class="tbl-field" x="42" y="566">id</text><text class="tbl-badge" x="210" y="566" text-anchor="end" fill="#534AB7">PK</text>
+  <text class="tbl-field" x="42" y="584">org_id</text><text class="tbl-badge" x="210" y="584" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="42" y="602">name</text>
+  <text class="tbl-field" x="42" y="620">intent</text>
+  <text class="tbl-field" x="42" y="638">primary_keyword_id</text><text class="tbl-badge" x="210" y="638" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="42" y="656">created_at</text>
+  <line x1="30" y1="528" x2="250" y2="528" stroke="var(--color-border-primary)" stroke-width="0.5"/>
+</g>
+
+<!-- brand_voice  y=730 -->
+<g id="brand_voice">
+  <rect class="tbl-box" x="30" y="730" width="220" height="180" rx="6"/>
+  <rect class="tbl-header" x="30" y="730" width="220" height="28" rx="6"/>
+  <rect x="30" y="752" width="220" height="6" class="tbl-header"/>
+  <text class="tbl-head" x="140" y="749" text-anchor="middle">brand_voice</text>
+  <text class="tbl-field" x="42" y="776">id</text><text class="tbl-badge" x="210" y="776" text-anchor="end" fill="#534AB7">PK</text>
+  <text class="tbl-field" x="42" y="794">org_id</text><text class="tbl-badge" x="210" y="794" text-anchor="end" fill="#0F6E56">FK unique</text>
+  <text class="tbl-field" x="42" y="812">tone</text>
+  <text class="tbl-field" x="42" y="830">vocabulary  jsonb</text>
+  <text class="tbl-field" x="42" y="848">banned_phrases  jsonb</text>
+  <text class="tbl-field" x="42" y="866">style_rules  jsonb</text>
+  <text class="tbl-field" x="42" y="884">updated_at</text>
+  <line x1="30" y1="738" x2="250" y2="738" stroke="var(--color-border-primary)" stroke-width="0.5"/>
+</g>
+
+<!-- preferences  y=960 -->
+<g id="preferences">
+  <rect class="tbl-box" x="30" y="960" width="220" height="162" rx="6"/>
+  <rect class="tbl-header" x="30" y="960" width="220" height="28" rx="6"/>
+  <rect x="30" y="982" width="220" height="6" class="tbl-header"/>
+  <text class="tbl-head" x="140" y="979" text-anchor="middle">preferences</text>
+  <text class="tbl-field" x="42" y="1006">id</text><text class="tbl-badge" x="210" y="1006" text-anchor="end" fill="#534AB7">PK</text>
+  <text class="tbl-field" x="42" y="1024">org_id</text><text class="tbl-badge" x="210" y="1024" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="42" y="1042">pattern  text</text>
+  <text class="tbl-field" x="42" y="1060">weight  float</text>
+  <text class="tbl-field" x="42" y="1078">source  enum</text>
+  <text class="tbl-field" x="42" y="1096">extracted_at</text>
+  <line x1="30" y1="968" x2="250" y2="968" stroke="var(--color-border-primary)" stroke-width="0.5"/>
+</g>
+
+<!-- ══════════════════════════════════
+     COL 2  x=320
+     ══════════════════════════════════ -->
+
+<!-- opportunities  y=30 -->
+<g id="opportunities">
+  <rect class="tbl-box" x="320" y="30" width="220" height="216" rx="6"/>
+  <rect class="tbl-header" x="320" y="30" width="220" height="28" rx="6"/>
+  <rect x="320" y="52" width="220" height="6" class="tbl-header"/>
+  <text class="tbl-head" x="430" y="49" text-anchor="middle">opportunities</text>
+  <text class="tbl-field" x="332" y="78">id</text><text class="tbl-badge" x="530" y="78" text-anchor="end" fill="#534AB7">PK</text>
+  <text class="tbl-field" x="332" y="96">org_id</text><text class="tbl-badge" x="530" y="96" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="332" y="114">keyword_id</text><text class="tbl-badge" x="530" y="114" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="332" y="132">search_score  float</text>
+  <text class="tbl-field" x="332" y="150">gap_score  float</text>
+  <text class="tbl-field" x="332" y="168">trend_score  float</text>
+  <text class="tbl-field" x="332" y="186">composite_score  float</text>
+  <text class="tbl-field" x="332" y="204">status  enum</text>
+  <text class="tbl-field" x="332" y="222">format_fit_scores  jsonb</text>
+  <text class="tbl-field" x="332" y="234">created_at</text>
+  <line x1="320" y1="60" x2="540" y2="60" stroke="var(--color-border-primary)" stroke-width="0.5"/>
+</g>
+
+<!-- content_items  y=300 -->
+<g id="content_items">
+  <rect class="tbl-box" x="320" y="300" width="220" height="234" rx="6"/>
+  <rect class="tbl-header" x="320" y="300" width="220" height="28" rx="6"/>
+  <rect x="320" y="322" width="220" height="6" class="tbl-header"/>
+  <text class="tbl-head" x="430" y="319" text-anchor="middle">content_items</text>
+  <text class="tbl-field" x="332" y="348">id</text><text class="tbl-badge" x="530" y="348" text-anchor="end" fill="#534AB7">PK</text>
+  <text class="tbl-field" x="332" y="366">org_id</text><text class="tbl-badge" x="530" y="366" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="332" y="384">opportunity_id</text><text class="tbl-badge" x="530" y="384" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="332" y="402">format  enum</text>
+  <text class="tbl-field" x="332" y="420">title</text>
+  <text class="tbl-field" x="332" y="438">body  text</text>
+  <text class="tbl-field" x="332" y="456">status  enum</text>
+  <text class="tbl-field" x="332" y="474">brand_voice_score</text>
+  <text class="tbl-field" x="332" y="492">seo_score</text>
+  <text class="tbl-field" x="332" y="510">published_url</text>
+  <line x1="320" y1="308" x2="540" y2="308" stroke="var(--color-border-primary)" stroke-width="0.5"/>
+</g>
+
+<!-- content_reviews  y=590 -->
+<g id="content_reviews">
+  <rect class="tbl-box" x="320" y="590" width="220" height="180" rx="6"/>
+  <rect class="tbl-header" x="320" y="590" width="220" height="28" rx="6"/>
+  <rect x="320" y="612" width="220" height="6" class="tbl-header"/>
+  <text class="tbl-head" x="430" y="609" text-anchor="middle">content_reviews</text>
+  <text class="tbl-field" x="332" y="636">id</text><text class="tbl-badge" x="530" y="636" text-anchor="end" fill="#534AB7">PK</text>
+  <text class="tbl-field" x="332" y="654">org_id</text><text class="tbl-badge" x="530" y="654" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="332" y="672">content_item_id</text><text class="tbl-badge" x="530" y="672" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="332" y="690">dimension  str</text>
+  <text class="tbl-field" x="332" y="708">score  float</text>
+  <text class="tbl-field" x="332" y="726">feedback_text</text>
+  <text class="tbl-field" x="332" y="744">reviewer</text>
+  <text class="tbl-field" x="332" y="762">created_at</text>
+  <line x1="320" y1="598" x2="540" y2="598" stroke="var(--color-border-primary)" stroke-width="0.5"/>
+</g>
+
+<!-- trend_signals  y=830 -->
+<g id="trend_signals">
+  <rect class="tbl-box" x="320" y="830" width="220" height="162" rx="6"/>
+  <rect class="tbl-header" x="320" y="830" width="220" height="28" rx="6"/>
+  <rect x="320" y="852" width="220" height="6" class="tbl-header"/>
+  <text class="tbl-head" x="430" y="849" text-anchor="middle">trend_signals</text>
+  <text class="tbl-field" x="332" y="876">id</text><text class="tbl-badge" x="530" y="876" text-anchor="end" fill="#534AB7">PK</text>
+  <text class="tbl-field" x="332" y="894">org_id</text><text class="tbl-badge" x="530" y="894" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="332" y="912">source  str</text>
+  <text class="tbl-field" x="332" y="930">query</text>
+  <text class="tbl-field" x="332" y="948">momentum  float</text>
+  <text class="tbl-field" x="332" y="966">detected_at</text>
+  <line x1="320" y1="838" x2="540" y2="838" stroke="var(--color-border-primary)" stroke-width="0.5"/>
+</g>
+
+<!-- prompts  y=1050 -->
+<g id="prompts">
+  <rect class="tbl-box" x="320" y="1050" width="220" height="162" rx="6"/>
+  <rect class="tbl-header" x="320" y="1050" width="220" height="28" rx="6"/>
+  <rect x="320" y="1072" width="220" height="6" class="tbl-header"/>
+  <text class="tbl-head" x="430" y="1069" text-anchor="middle">prompts</text>
+  <text class="tbl-field" x="332" y="1096">id</text><text class="tbl-badge" x="530" y="1096" text-anchor="end" fill="#534AB7">PK</text>
+  <text class="tbl-field" x="332" y="1114">agent_name</text>
+  <text class="tbl-field" x="332" y="1132">version  int</text>
+  <text class="tbl-field" x="332" y="1150">template  text</text>
+  <text class="tbl-field" x="332" y="1168">active  bool</text>
+  <text class="tbl-field" x="332" y="1186">created_at</text>
+  <line x1="320" y1="1058" x2="540" y2="1058" stroke="var(--color-border-primary)" stroke-width="0.5"/>
+</g>
+
+<!-- ══════════════════════════════════
+     COL 3  x=620
+     ══════════════════════════════════ -->
+
+<!-- competitors  y=30 -->
+<g id="competitors">
+  <rect class="tbl-box" x="620" y="30" width="220" height="144" rx="6"/>
+  <rect class="tbl-header" x="620" y="30" width="220" height="28" rx="6"/>
+  <rect x="620" y="52" width="220" height="6" class="tbl-header"/>
+  <text class="tbl-head" x="730" y="49" text-anchor="middle">competitors</text>
+  <text class="tbl-field" x="632" y="78">id</text><text class="tbl-badge" x="830" y="78" text-anchor="end" fill="#534AB7">PK</text>
+  <text class="tbl-field" x="632" y="96">org_id</text><text class="tbl-badge" x="830" y="96" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="632" y="114">domain</text>
+  <text class="tbl-field" x="632" y="132">last_crawled_at</text>
+  <text class="tbl-field" x="632" y="150">created_at</text>
+  <line x1="620" y1="60" x2="840" y2="60" stroke="var(--color-border-primary)" stroke-width="0.5"/>
+</g>
+
+<!-- competitor_content  y=230 -->
+<g id="competitor_content">
+  <rect class="tbl-box" x="620" y="230" width="220" height="198" rx="6"/>
+  <rect class="tbl-header" x="620" y="230" width="220" height="28" rx="6"/>
+  <rect x="620" y="252" width="220" height="6" class="tbl-header"/>
+  <text class="tbl-head" x="730" y="249" text-anchor="middle">competitor_content</text>
+  <text class="tbl-field" x="632" y="276">id</text><text class="tbl-badge" x="830" y="276" text-anchor="end" fill="#534AB7">PK</text>
+  <text class="tbl-field" x="632" y="294">org_id</text><text class="tbl-badge" x="830" y="294" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="632" y="312">competitor_id</text><text class="tbl-badge" x="830" y="312" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="632" y="330">url</text>
+  <text class="tbl-field" x="632" y="348">title</text>
+  <text class="tbl-field" x="632" y="366">word_count  int</text>
+  <text class="tbl-field" x="632" y="384">threat_score  float</text>
+  <text class="tbl-field" x="632" y="402">keywords_overlap  jsonb</text>
+  <text class="tbl-field" x="632" y="420">created_at</text>
+  <line x1="620" y1="238" x2="840" y2="238" stroke="var(--color-border-primary)" stroke-width="0.5"/>
+</g>
+
+<!-- knowledge_chunks  y=490 -->
+<g id="knowledge_chunks">
+  <rect class="tbl-box" x="620" y="490" width="220" height="180" rx="6"/>
+  <rect class="tbl-header" x="620" y="490" width="220" height="28" rx="6"/>
+  <rect x="620" y="512" width="220" height="6" class="tbl-header"/>
+  <text class="tbl-head" x="730" y="509" text-anchor="middle">knowledge_chunks</text>
+  <text class="tbl-field" x="632" y="536">id</text><text class="tbl-badge" x="830" y="536" text-anchor="end" fill="#534AB7">PK</text>
+  <text class="tbl-field" x="632" y="554">org_id</text><text class="tbl-badge" x="830" y="554" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="632" y="572">source_doc</text>
+  <text class="tbl-field" x="632" y="590">chunk_text  text</text>
+  <text class="tbl-field" x="632" y="608">embedding  vector(1536)</text>
+  <text class="tbl-field" x="632" y="626">metadata  jsonb</text>
+  <text class="tbl-field" x="632" y="644">created_at</text>
+  <line x1="620" y1="498" x2="840" y2="498" stroke="var(--color-border-primary)" stroke-width="0.5"/>
+</g>
+
+<!-- agent_runs  y=730 -->
+<g id="agent_runs">
+  <rect class="tbl-box" x="620" y="730" width="220" height="270" rx="6"/>
+  <rect class="tbl-header" x="620" y="730" width="220" height="28" rx="6"/>
+  <rect x="620" y="752" width="220" height="6" class="tbl-header"/>
+  <text class="tbl-head" x="730" y="749" text-anchor="middle">agent_runs</text>
+  <text class="tbl-field" x="632" y="776">id</text><text class="tbl-badge" x="830" y="776" text-anchor="end" fill="#534AB7">PK</text>
+  <text class="tbl-field" x="632" y="794">org_id</text><text class="tbl-badge" x="830" y="794" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="632" y="812">agent_name</text>
+  <text class="tbl-field" x="632" y="830">status  enum</text>
+  <text class="tbl-field" x="632" y="848">duration_ms  int</text>
+  <text class="tbl-field" x="632" y="866">tokens_in  int</text>
+  <text class="tbl-field" x="632" y="884">tokens_out  int</text>
+  <text class="tbl-field" x="632" y="902">cost_usd  float</text>
+  <text class="tbl-field" x="632" y="920">model_used</text>
+  <text class="tbl-field" x="632" y="938">error  text</text>
+  <text class="tbl-field" x="632" y="956">started_at</text>
+  <text class="tbl-field" x="632" y="974">completed_at</text>
+  <line x1="620" y1="738" x2="840" y2="738" stroke="var(--color-border-primary)" stroke-width="0.5"/>
+</g>
+
+<!-- pipeline_runs  y=1060 -->
+<g id="pipeline_runs">
+  <rect class="tbl-box" x="620" y="1060" width="220" height="162" rx="6"/>
+  <rect class="tbl-header" x="620" y="1060" width="220" height="28" rx="6"/>
+  <rect x="620" y="1082" width="220" height="6" class="tbl-header"/>
+  <text class="tbl-head" x="730" y="1079" text-anchor="middle">pipeline_runs</text>
+  <text class="tbl-field" x="632" y="1106">id</text><text class="tbl-badge" x="830" y="1106" text-anchor="end" fill="#534AB7">PK</text>
+  <text class="tbl-field" x="632" y="1124">org_id</text><text class="tbl-badge" x="830" y="1124" text-anchor="end" fill="#0F6E56">FK</text>
+  <text class="tbl-field" x="632" y="1142">pipeline_name</text>
+  <text class="tbl-field" x="632" y="1160">status  enum</text>
+  <text class="tbl-field" x="632" y="1178">started_at</text>
+  <text class="tbl-field" x="632" y="1196">completed_at</text>
+  <line x1="620" y1="1068" x2="840" y2="1068" stroke="var(--color-border-primary)" stroke-width="0.5"/>
+</g>
+
+<!-- ══════════════════════════════════
+     RELATIONSHIP LINES (dashed)
+     ══════════════════════════════════ -->
+
+<!-- organizations → keywords (org_id) -->
+<path class="rel-line" d="M140 192 L140 216 L140 240" marker-end="url(#arr)"/>
+<text class="rel-label" x="148" y="228">1 : many</text>
+
+<!-- organizations → keyword_clusters -->
+<path class="rel-line" d="M250 111 L285 111 L285 601 L250 601" marker-end="url(#arr)"/>
+<text class="rel-label" x="288" y="356">1 : many</text>
+
+<!-- organizations → opportunities -->
+<path class="rel-line" d="M250 90 L280 90 L280 44 L320 44" marker-end="url(#arr)"/>
+<text class="rel-label" x="282" y="88">1 : many</text>
+
+<!-- organizations → content_items -->
+<path class="rel-line" d="M250 100 L290 100 L290 380 L320 380" marker-end="url(#arr)"/>
+
+<!-- organizations → competitors -->
+<path class="rel-line" d="M250 120 L310 120 L310 102 L580 102 L580 96 L620 96" marker-end="url(#arr)"/>
+
+<!-- organizations → brand_voice -->
+<path class="rel-line" d="M140 192 L140 730" marker-end="url(#arr)"/>
+<text class="rel-label" x="148" y="470">1 : 1</text>
+
+<!-- organizations → preferences -->
+<path class="rel-line" d="M30 111 L10 111 L10 1041 L30 1041" marker-end="url(#arr)"/>
+<text class="rel-label" x="13" y="580">1 : many</text>
+
+<!-- organizations → agent_runs -->
+<path class="rel-line" d="M250 140 L305 140 L305 800 L580 800 L580 794 L620 794" marker-end="url(#arr)"/>
+
+<!-- organizations → pipeline_runs -->
+<path class="rel-line" d="M250 155 L308 155 L308 1141 L580 1141 L580 1124 L620 1124" marker-end="url(#arr)"/>
+
+<!-- organizations → trend_signals -->
+<path class="rel-line" d="M250 130 L300 130 L300 911 L320 911" marker-end="url(#arr)"/>
+
+<!-- organizations → knowledge_chunks -->
+<path class="rel-line" d="M250 108 L312 108 L312 560 L580 560 L580 554 L620 554" marker-end="url(#arr)"/>
+
+<!-- keywords → keyword_clusters (cluster_id FK) -->
+<path class="rel-line" d="M140 474 L140 520" marker-end="url(#arr)"/>
+<text class="rel-label" x="148" y="500">1 : many</text>
+
+<!-- keyword_clusters → opportunities -->
+<path class="rel-line" d="M250 601 L295 601 L295 150 L320 150" marker-end="url(#arr)"/>
+<text class="rel-label" x="296" y="400">generates</text>
+
+<!-- opportunities → content_items -->
+<path class="rel-line" d="M430 246 L430 300" marker-end="url(#arr)"/>
+<text class="rel-label" x="438" y="276">1 : many</text>
+
+<!-- content_items → content_reviews -->
+<path class="rel-line" d="M430 534 L430 590" marker-end="url(#arr)"/>
+<text class="rel-label" x="438" y="565">1 : many</text>
+
+<!-- competitors → competitor_content -->
+<path class="rel-line" d="M730 174 L730 230" marker-end="url(#arr)"/>
+<text class="rel-label" x="738" y="205">1 : many</text>
+
+<!-- ══════════════════════════════════
+     LEGEND
+     ══════════════════════════════════ -->
+<rect x="30" y="1270" width="780" height="100" rx="8" fill="var(--color-background-secondary)" stroke="var(--color-border-tertiary)" stroke-width="0.5"/>
+<text class="tbl-head" x="50" y="1292">Legend</text>
+<line x1="50" y1="1290" x2="810" y2="1290" stroke="var(--color-border-tertiary)" stroke-width="0.5"/>
+<rect x="50" y="1302" width="14" height="14" rx="3" fill="var(--color-background-tertiary)" stroke="var(--color-border-primary)" stroke-width="1"/>
+<text class="tbl-field" x="72" y="1314">Table header</text>
+<text class="tbl-badge" x="190" y="1314" fill="#534AB7">PK</text>
+<text class="tbl-field" x="200" y="1314">Primary key</text>
+<text class="tbl-badge" x="310" y="1314" fill="#0F6E56">FK</text>
+<text class="tbl-field" x="320" y="1314">Foreign key (RLS anchor)</text>
+<line x1="480" y1="1311" x2="560" y2="1311" class="rel-line" stroke-dasharray="5 3"/>
+<text class="tbl-field" x="570" y="1314">Relationship</text>
+<text class="tbl-field" x="50" y="1340">All tables with org_id are protected by Row Level Security — queries return only the current org's rows.</text>
+<text class="tbl-field" x="50" y="1358">knowledge_chunks.embedding is a vector(1536) column — powered by pgvector for semantic similarity search.</text>
+
+</svg>

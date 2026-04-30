@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ── Job 1: Linting ──────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ruff
+        run: pip install ruff
+      - name: Lint apps/api
+        run: ruff check apps/api
+
+  # ── Job 2: Type checking ────────────────────────────────────────────────────
+  typecheck:
+    name: Type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies + pyright
+        run: |
+          pip install -e apps/api
+          pip install pyright
+      - name: Run pyright
+        run: pyright apps/api
+
+  # ── Job 3: Unit tests ───────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -e apps/api pytest pytest-asyncio pytest-cov respx
+      - name: Run unit tests
+        run: pytest tests/unit/ --cov=apps/api --cov-report=term-missing
+
+  # ── Job 4: Integration tests ────────────────────────────────────────────────
+  integration-tests:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: vikas
+          POSTGRES_PASSWORD: vikas_dev
+          POSTGRES_DB: vikas
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vikas -d vikas"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -e apps/api pytest pytest-asyncio pytest-cov respx
+      - name: Create test database
+        env:
+          PGPASSWORD: vikas_dev
+        run: createdb -h localhost -U vikas vikas_test
+      - name: Run integration tests
+        env:
+          TEST_DATABASE_URL: postgresql+asyncpg://vikas:vikas_dev@localhost:5432/vikas_test
+          DATABASE_URL: postgresql+asyncpg://vikas:vikas_dev@localhost:5432/vikas_test
+          REDIS_URL: redis://localhost:6379/0
+          MOCK_LLM: "true"
+          # Dummy Fernet key for CI — not used by keyword pipeline tests but
+          # required by settings validation. Generate a real one for production:
+          # python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+          SETTINGS_ENCRYPTION_KEY: "dGVzdC1mZXJuZXQta2V5LWZvci1jaS10ZXN0cy0wMDA="
+        run: pytest tests/integration/ -v

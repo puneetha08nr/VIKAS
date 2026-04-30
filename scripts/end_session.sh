@@ -1,0 +1,12 @@
+#!/bin/bash
+echo "================================"
+echo "END OF SESSION — run this prompt in Claude Code:"
+echo "================================"
+echo ""
+echo "Review what was built or fixed in this session."
+echo "Update CLAUDE.md agent status table and"
+echo "add any new issues to ISSUES_AND_FIXES.md."
+echo "Also update the Agents Build Status checkboxes"
+echo "for any agent that was verified this session."
+echo ""
+echo "================================"
