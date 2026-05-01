@@ -134,6 +134,45 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...ADMIN_DATABASE_URL=postgresql+as
 
 ---
 
+## Eval framework
+
+### Issue 11 — `_make_ctx` always overwrote `mock_llm.complete`, breaking failure-mode structural tests
+**Symptom:** `test_empty_llm_response_returns_zero_keywords` and `test_llm_refusal_returns_zero_keywords` failed. The test set `mock_llm.complete = AsyncMock(return_value="")` before calling `_make_ctx`, but the agent still saw the standard 3-keyword response.
+
+**Root cause:** `_make_ctx` unconditionally re-assigned `mock_llm.complete = AsyncMock(return_value=_MOCK_LLM_RESPONSE)`, overwriting whatever the test had set.
+
+**Fix:** Removed the `mock_llm.complete` assignment from `_make_ctx`. The conftest fixture provides the default response; tests that need a different response set it on the mock before calling `_make_ctx`.
+
+**Rule:** Helper functions that build fixtures must never override fields the caller has already set.
+
+---
+
+### Issue 12 — pytest did not discover `eval_*.py` files; collected 0 tests from `tests/evals/`
+**Symptom:** `pytest tests/evals/` reported "no tests collected" even though `pytest tests/evals/seo/eval_keyword_research.py` collected 21 tests.
+
+**Root cause:** pytest's default `python_files` glob is `test_*.py`. Eval files named `eval_*.py` are invisible to directory-based discovery.
+
+**Fix:** Added to `pyproject.toml`:
+```toml
+[tool.pytest.ini_options]
+python_files = ["test_*.py", "eval_*.py"]
+```
+
+**Rule:** Any test file that doesn't start with `test_` needs the extra glob in `python_files`. Specifying the file path directly bypasses this — so `pytest path/to/file.py` works even without the config, masking the issue.
+
+---
+
+### Issue 13 — Two Alembic heads after adding evals_log migration
+**Symptom:** `uv run alembic upgrade head` failed: "Multiple head revisions are present".
+
+**Root cause:** The new migration used `down_revision = "d5e6f7a8b9c0"` (create_app_role). But `22619f407a67` (add_intent_reason_to_keywords) also points to `d5e6f7a8b9c0` as its parent. Two migrations with the same parent = two heads.
+
+**Fix:** Updated `down_revision` in the new migration to `"22619f407a67"` (the true latest head at the time of creation).
+
+**Rule:** Before writing a new migration, always run `uv run alembic heads` to identify the current head. Use that revision as `down_revision`, not one you remember from a previous session.
+
+---
+
 ## API / Auth
 
 ### Issue 8 — Dashboard keywords page returned 404 "Organization not found"

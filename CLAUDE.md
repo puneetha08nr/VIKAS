@@ -320,6 +320,53 @@ auto_mode_engine triggers:
 
 ---
 
+## Eval Framework
+
+Three-tier quality system for every agent. Files live in `tests/evals/<dept>/eval_<agent>.py`.
+
+### Eval types
+
+| Type | Who runs it | When | Purpose |
+|---|---|---|---|
+| **Structural** | pytest (automated) | Every CI run | Output shape, field types, enum values, DB write confirmed |
+| **Relevance** | eval_runner.py | Weekly | LLM-as-judge scores output quality 0–1 against per-agent threshold |
+| **Ground truth** | Human (interactive) | Monthly | 5 labelled samples, human rates 1–5, trends over time |
+
+### Running evals
+
+```bash
+# CI — all structural checks (21 tests for keyword_research, stubs skip)
+python -m pytest tests/evals/ -k "Structural"
+
+# Or via eval_runner (also logs results to evals_log DB table)
+python tests/evals/eval_runner.py structural [--agents keyword_research,gap_analyzer]
+
+# Weekly relevance (requires LLM API key; runs agent live then judges output)
+python tests/evals/eval_runner.py relevance [--agents keyword_research]
+
+# Monthly ground truth (interactive, prompts for 1-5 score per sample)
+python tests/evals/eval_runner.py ground-truth --agent keyword_research
+
+# Trend report (queries evals_log, markdown table with improving/degrading/stable)
+python tests/evals/eval_runner.py report [--days 30]
+```
+
+### Adding evals for a new agent
+
+1. Create `tests/evals/<dept>/eval_<agent>.py` from any existing stub as template.
+2. Set `IS_BUILT = True`.
+3. Remove `@pytest.mark.skip` from `TestStructural_<agent>`.
+4. Implement test bodies (check result fields, DB inserts, enum values).
+5. Set `RELEVANCE_THRESHOLD` and fill `RELEVANCE_SAMPLE_INPUTS` / `RELEVANCE_JUDGE_CRITERIA`.
+6. Fill `GROUND_TRUTH_SAMPLES` with 5 representative inputs + expected field checklist.
+
+### DB table
+
+`evals_log` stores all eval results (no RLS — operational data, not tenant data).
+Indexes on `agent_name`, `run_at`, and `(agent_name, eval_type)` for trend queries.
+
+---
+
 ## Development Workflow
 
 - **Branch strategy**: `main` (prod) ← `staging` ← feature branches
