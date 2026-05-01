@@ -484,7 +484,7 @@ If any of these fail, stop. Fix before proceeding.
 
 | Agent | Contract | Migration | Prompt | Unit Test | CLI Verified | DB Verified | RLS Verified | Golden Trace |
 |---|---|---|---|---|---|---|---|---|
-| keyword_research | ✅ | ✅ | ✅ | ⬜ | ✅ | ✅ | ⬜ | ⬜ |
+| keyword_research | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ⬜ | ✅ |
 | keyword_validator | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | gap_analyzer | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | rank_tracker | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
@@ -503,7 +503,10 @@ If any of these fail, stop. Fix before proceeding.
 
 ```bash
 # Database
-DATABASE_URL=postgresql+asyncpg://vikas:password@localhost:5432/vikas
+# DATABASE_URL     → vikas_app (restricted user, RLS enforced) — used by API runtime + agents
+# ADMIN_DATABASE_URL → vikas (admin user, DDL privileges) — used by Alembic migrations ONLY
+DATABASE_URL=postgresql+asyncpg://vikas_app:vikas_app_dev@localhost:5432/vikas
+ADMIN_DATABASE_URL=postgresql+asyncpg://vikas:vikas_dev@localhost:5432/vikas
 REDIS_URL=redis://localhost:6379/0
 
 # LLM Providers

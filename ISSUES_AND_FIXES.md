@@ -104,6 +104,36 @@ Named volumes are owned by the container user, so the Next.js process can write 
 
 ---
 
+## Database / Migrations
+
+### Issue 9 — `vikas_app` role had no password; connection from host failed
+**Symptom:** `python scripts/run_agent.py` raised `asyncpg.exceptions.InvalidPasswordError: password authentication failed for user "vikas_app"` even though the role existed in PostgreSQL.
+
+**Root cause:** The `vikas_app` role was created without a password (`ALTER ROLE vikas_app ...` without `PASSWORD`). Inside the container peer auth works, but asyncpg connecting from the host requires password auth.
+
+**Fix:** Set the password to match `.env`:
+```sql
+ALTER ROLE vikas_app PASSWORD 'vikas_app_dev';
+```
+**Prevention:** Include `ALTER ROLE vikas_app PASSWORD '...'` in the DB init script / `seed_db.py` so new dev environments never hit this.
+
+---
+
+### Issue 10 — `ADMIN_DATABASE_URL` merged onto same line as `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env`
+**Symptom:** `pydantic_settings` raised `ValidationError: admin_database_url Field required` even though `ADMIN_DATABASE_URL` appeared to be set in `.env`.
+
+**Root cause:** A missing newline in `.env` caused the line to read:
+```
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...ADMIN_DATABASE_URL=postgresql+asyncpg://...
+```
+`python-dotenv` parsed this as a single key (`NEXT_PUBLIC_SUPABASE_ANON_KEY`) with a value that happened to contain the string `ADMIN_DATABASE_URL=...`. The `ADMIN_DATABASE_URL` key was never set.
+
+**Fix:** Split the line into two separate entries in `.env`.
+
+**Detection:** Always `grep ADMIN_DATABASE_URL .env` and verify the output is exactly one line with no prefix content.
+
+---
+
 ## API / Auth
 
 ### Issue 8 — Dashboard keywords page returned 404 "Organization not found"
