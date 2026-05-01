@@ -73,6 +73,7 @@ vikas/
 │       ├── core/
 │       │   ├── agent_base.py       # BaseAgent ABC
 │       │   ├── agent_registry.py   # discover + instantiate agents by name
+│       │   ├── contracts.py        # Pydantic output contracts for all agents
 │       │   ├── llm_router.py       # model selection + fallback
 │       │   ├── cost_tracker.py     # token usage aggregation
 │       │   ├── task_queue.py       # Celery/ARQ dispatch
