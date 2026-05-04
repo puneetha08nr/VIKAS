@@ -119,16 +119,75 @@ class OpportunityOutput(BaseModel):
     format_fit_scores: dict = {}
 
 
+class TrendSignalOutput(BaseModel):
+    """One row produced by trend_collector agent."""
+    query: str
+    source: str = "google_trends"
+    momentum: float = 5.0
+
+    @field_validator("query", mode="before")
+    @classmethod
+    def _strip_query(cls, v: object) -> str:
+        return str(v).strip()[:500]
+
+    @field_validator("momentum", mode="before")
+    @classmethod
+    def _clamp_momentum(cls, v: object) -> float:
+        try:
+            return max(0.0, min(10.0, float(str(v))))
+        except (ValueError, TypeError):
+            return 5.0
+
+
 # ── SEO stubs (fill when building each agent) ─────────────────────────────────
 
 class GapAnalysisOutput(BaseModel):
-    """Output contract for gap_analyzer agent. Fill when building."""
-    ...
+    """One opportunity row updated by gap_analyzer agent."""
+    keyword: str
+    keyword_id: str
+    competitive_gap_score: float
+    our_position: Optional[float] = None
+    competitor_pages_found: int = 0
+
+    @field_validator("competitive_gap_score", mode="before")
+    @classmethod
+    def _clamp_gap(cls, v: object) -> float:
+        try:
+            return round(max(0.0, min(10.0, float(str(v)))), 2)
+        except (ValueError, TypeError):
+            return 5.0
+
+    @field_validator("competitor_pages_found", mode="before")
+    @classmethod
+    def _coerce_pages(cls, v: object) -> int:
+        try:
+            return max(0, int(v))
+        except (ValueError, TypeError):
+            return 0
 
 
 class RankTrackingOutput(BaseModel):
-    """Output contract for rank_tracker agent. Fill when building."""
-    ...
+    """One row produced by rank_tracker agent."""
+    keyword: str
+    keyword_id: str
+    position: Optional[float] = None
+    previous_position: Optional[float] = None
+    status: str = "not_ranking"  # "quick_win" | "ranking" | "not_ranking"
+
+    @field_validator("position", "previous_position", mode="before")
+    @classmethod
+    def _coerce_position(cls, v: object) -> Optional[float]:
+        if v is None:
+            return None
+        try:
+            return round(float(str(v)), 1)
+        except (ValueError, TypeError):
+            return None
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def _validate_status(cls, v: object) -> str:
+        return str(v) if str(v) in {"quick_win", "ranking", "not_ranking"} else "not_ranking"
 
 
 # ── Content stubs ─────────────────────────────────────────────────────────────
@@ -153,6 +212,47 @@ class LinkedInPostOutput(BaseModel):
     ...
 
 
+# ── Competitor agents ─────────────────────────────────────────────────────────
+
+class CompetitorMonitorOutput(BaseModel):
+    """One competitor entry produced by competitor_monitor agent."""
+    domain: str
+    urls_found: int = 0
+    status: str = "ok"  # "ok" | "unreachable"
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def validate_monitor_status(cls, v: object) -> str:
+        return str(v) if str(v) in {"ok", "unreachable"} else "ok"
+
+
+class ContentExtractorOutput(BaseModel):
+    """One URL result produced by content_extractor agent."""
+    url: str
+    domain: str
+    title: str = ""
+    word_count: int = 0
+    status: str = "ok"  # "ok" | "failed" | "skipped"
+
+    @field_validator("url", "domain", mode="before")
+    @classmethod
+    def _strip_str(cls, v: object) -> str:
+        return str(v).strip()
+
+    @field_validator("word_count", mode="before")
+    @classmethod
+    def _coerce_word_count(cls, v: object) -> int:
+        try:
+            return max(0, int(v))
+        except (ValueError, TypeError):
+            return 0
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def _validate_status(cls, v: object) -> str:
+        return str(v) if str(v) in {"ok", "failed", "skipped"} else "failed"
+
+
 # ── Knowledge stubs ───────────────────────────────────────────────────────────
 
 class DocumentIngestionOutput(BaseModel):
@@ -161,8 +261,45 @@ class DocumentIngestionOutput(BaseModel):
 
 
 class BrandVoiceOutput(BaseModel):
-    """Output contract for brand_voice_keeper agent. Fill when building."""
-    ...
+    """One brand-voice state row produced by brand_voice_keeper agent."""
+    org_id: str
+    tone: str = ""
+    vocabulary: list = []
+    banned_phrases: list = []
+    style_rules: dict = {}
+
+    @field_validator("tone", mode="before")
+    @classmethod
+    def _strip_tone(cls, v: object) -> str:
+        return str(v).strip()[:255] if v else ""
+
+    @field_validator("vocabulary", "banned_phrases", mode="before")
+    @classmethod
+    def _coerce_list(cls, v: object) -> list:
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            import json
+            try:
+                parsed = json.loads(v)
+                return parsed if isinstance(parsed, list) else []
+            except (json.JSONDecodeError, ValueError):
+                return []
+        return []
+
+    @field_validator("style_rules", mode="before")
+    @classmethod
+    def _coerce_dict(cls, v: object) -> dict:
+        if isinstance(v, dict):
+            return v
+        if isinstance(v, str):
+            import json
+            try:
+                parsed = json.loads(v)
+                return parsed if isinstance(parsed, dict) else {}
+            except (json.JSONDecodeError, ValueError):
+                return {}
+        return {}
 
 
 class RAGSearchOutput(BaseModel):

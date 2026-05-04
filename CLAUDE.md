@@ -532,13 +532,16 @@ If any of these fail, stop. Fix before proceeding.
 
 | Agent | Contract | Migration | Prompt | Unit Test | CLI Verified | DB Verified | RLS Verified | Golden Trace |
 |---|---|---|---|---|---|---|---|---|
-| keyword_research | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ⬜ | ✅ |
-| keyword_validator | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ⬜ | ✅ |
-| opportunity_scorer | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ⬜ | ⬜ |
-| gap_analyzer | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| rank_tracker | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| keyword_research | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| keyword_validator | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| opportunity_scorer | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ✅ | ✅ |
+| trend_collector | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ✅ | ✅ |
+| competitor_monitor | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ✅ | ✅ |
+| content_extractor | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ✅ | ✅ |
+| gap_analyzer | ✅ | n/a | n/a | ✅ | ✅ | ✅ | ✅ | ✅ |
+| rank_tracker | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ✅ | ✅ |
 | document_ingester | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| brand_voice_keeper | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| brand_voice_keeper | ✅ | n/a | n/a | ✅ | ✅ | ✅ | ✅ | ⬜ |
 | rag_searcher | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | article_planner | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | article_writer | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |

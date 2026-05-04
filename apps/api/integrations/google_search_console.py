@@ -1,32 +1,35 @@
 """Google Search Console integration.
 
-Uses the Search Analytics API v3 via service account credentials.
+Set USE_MOCK_DATA=true in .env to return canned search analytics without
+hitting the real API — useful while GSC has no traffic data yet.
+
+Uses OAuth 2.0 user credentials (refresh token) via google-api-python-client.
 
 Credential resolution order (first wins):
   1. org settings JSON blob — production path (org_id + db provided)
-  2. GSC_SERVICE_ACCOUNT_JSON env var — dev / CLI / health-check path
+  2. GSC_CLIENT_ID / GSC_CLIENT_SECRET / GSC_REFRESH_TOKEN env vars — dev / CLI path
+
+Setup (run once):
+    python scripts/gsc_auth.py
+Then add GSC_CLIENT_ID, GSC_CLIENT_SECRET, GSC_REFRESH_TOKEN to .env.
 """
-import json
 import logging
+import os
 from datetime import date
 from typing import Any
 
-import google.auth.transport.requests
-import google.oauth2.service_account
 import httpx
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from integrations.base import BaseIntegration, IntegrationError
 
 logger = logging.getLogger(__name__)
 
 _SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly"]
-_GSC_BASE = "https://searchconsole.googleapis.com/webmasters/v3"
 
 
 class GoogleSearchConsoleIntegration(BaseIntegration):
     name = "google_search_console"
-    base_url = _GSC_BASE
+    base_url = "https://searchconsole.googleapis.com"
     max_requests_per_minute = 200
 
     # ── Auth ──────────────────────────────────────────────────────────────────
@@ -34,43 +37,79 @@ class GoogleSearchConsoleIntegration(BaseIntegration):
     async def get_credentials(
         self,
         org_id: str | None = None,
-        db: AsyncSession | None = None,
+        db: Any | None = None,
     ) -> dict:
-        """Return parsed service-account JSON dict.
-
-        Falls back to GSC_SERVICE_ACCOUNT_JSON env var when org_id/db are
-        not provided (CLI, health-check, dev testing).
-        """
+        """Satisfy BaseIntegration abstract contract. Returns OAuth token fields as dict."""
+        org_settings = None
         if org_id and db:
-            settings = await self._get_org_settings(org_id, db)
-            raw = settings.get("gsc_service_account_json")
-            if raw:
-                return json.loads(raw) if isinstance(raw, str) else raw
+            org_settings = await self._get_org_settings(org_id, db)
+        creds = self._get_credentials(org_settings)
+        return {
+            "client_id": creds.client_id,
+            "client_secret": creds.client_secret,
+            "refresh_token": creds.refresh_token,
+            "token": creds.token,
+            "token_uri": creds.token_uri,
+        }
 
-        # Env-var fallback
-        from config.settings import settings as app_settings
-        raw = app_settings.gsc_service_account_json
-        if not raw:
+    def _get_credentials(self, org_settings: dict | None = None):
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        from config.settings import settings
+
+        if org_settings:
+            client_id = org_settings.get("gsc_client_id") or settings.gsc_client_id
+            client_secret = org_settings.get("gsc_client_secret") or settings.gsc_client_secret
+            refresh_token = org_settings.get("gsc_refresh_token") or settings.gsc_refresh_token
+        else:
+            client_id = settings.gsc_client_id
+            client_secret = settings.gsc_client_secret
+            refresh_token = settings.gsc_refresh_token
+
+        if not refresh_token:
             raise IntegrationError(
-                "GSC credentials not configured — set gsc_service_account_json "
-                "in org settings or GSC_SERVICE_ACCOUNT_JSON env var",
+                "GSC OAuth credentials not configured. "
+                "Run scripts/gsc_auth.py to generate token, "
+                "then set GSC_CLIENT_ID, GSC_CLIENT_SECRET, GSC_REFRESH_TOKEN in .env.",
                 status_code=None,
                 integration_name=self.name,
             )
-        return json.loads(raw) if isinstance(raw, str) else raw
 
-    def _build_authed_client(self, service_account_info: dict) -> httpx.AsyncClient:
-        creds = google.oauth2.service_account.Credentials.from_service_account_info(
-            service_account_info, scopes=_SCOPES
+        creds = Credentials(
+            token=None,
+            refresh_token=refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=client_id,
+            client_secret=client_secret,
+            scopes=_SCOPES,
         )
-        creds.refresh(google.auth.transport.requests.Request())
-        return httpx.AsyncClient(
-            headers={"Authorization": f"Bearer {creds.token}"},
-            base_url=_GSC_BASE,
-            timeout=30.0,
-        )
+
+        if not creds.valid:
+            creds.refresh(Request())
+
+        return creds
+
+    def _build_service(self, org_settings: dict | None = None):
+        from googleapiclient.discovery import build
+
+        creds = self._get_credentials(org_settings)
+        return build("searchconsole", "v1", credentials=creds)
 
     # ── Public methods ────────────────────────────────────────────────────────
+
+    async def list_sites(
+        self,
+        org_id: str | None = None,
+        db: Any | None = None,
+    ) -> list[str]:
+        """Return verified site URLs."""
+        org_settings = None
+        if org_id and db:
+            org_settings = await self._get_org_settings(org_id, db)
+
+        service = self._build_service(org_settings)
+        result = service.sites().list().execute()
+        return [s["siteUrl"] for s in result.get("siteEntry", [])]
 
     async def get_search_analytics(
         self,
@@ -80,97 +119,68 @@ class GoogleSearchConsoleIntegration(BaseIntegration):
         dimensions: list[str] | None = None,
         row_limit: int = 1000,
         org_id: str | None = None,
-        db: AsyncSession | None = None,
+        db: Any | None = None,
     ) -> list[dict]:
         """Return search analytics rows normalised to {query, clicks, impressions, ctr, position}."""
         if dimensions is None:
             dimensions = ["query"]
 
-        creds_info = await self.get_credentials(org_id, db)
-        async with self._build_authed_client(creds_info) as client:
-            payload: dict[str, Any] = {
-                "startDate": str(start_date),
-                "endDate": str(end_date),
-                "dimensions": dimensions,
-                "rowLimit": row_limit,
-            }
-            try:
-                resp = await client.post(
-                    f"/sites/{_encode_site(site_url)}/searchAnalytics/query",
-                    json=payload,
-                )
-                resp.raise_for_status()
-            except httpx.HTTPStatusError as exc:
-                raise IntegrationError(
-                    f"GSC search analytics failed: {exc}",
-                    status_code=exc.response.status_code,
-                    integration_name=self.name,
-                ) from exc
+        if os.getenv("USE_MOCK_DATA") == "true":
+            _mock_rows = [
+                {"keys": ["ai marketing automation"], "clicks": 142,
+                 "impressions": 1500, "ctr": 0.094, "position": 4.2},
+                {"keys": ["multi agent system tutorial"], "clicks": 12,
+                 "impressions": 850, "ctr": 0.014, "position": 14.5},
+                {"keys": ["project management software"], "clicks": 8,
+                 "impressions": 600, "ctr": 0.013, "position": 22.1},
+            ]
+            return [_normalise_row(r, dimensions) for r in _mock_rows]
 
-        rows = resp.json().get("rows", [])
+        org_settings = None
+        if org_id and db:
+            org_settings = await self._get_org_settings(org_id, db)
+
+        service = self._build_service(org_settings)
+        request_body = {
+            "startDate": str(start_date),
+            "endDate": str(end_date),
+            "dimensions": dimensions,
+            "rowLimit": row_limit,
+        }
+        response = (
+            service.searchanalytics()
+            .query(siteUrl=site_url, body=request_body)
+            .execute()
+        )
+        rows = response.get("rows", [])
         return [_normalise_row(row, dimensions) for row in rows]
 
     async def get_sitemaps(
         self,
         site_url: str,
         org_id: str | None = None,
-        db: AsyncSession | None = None,
+        db: Any | None = None,
     ) -> list[str]:
-        creds_info = await self.get_credentials(org_id, db)
-        async with self._build_authed_client(creds_info) as client:
-            try:
-                resp = await client.get(f"/sites/{_encode_site(site_url)}/sitemaps")
-                resp.raise_for_status()
-            except httpx.HTTPStatusError as exc:
-                raise IntegrationError(
-                    f"GSC sitemaps failed: {exc}",
-                    status_code=exc.response.status_code,
-                    integration_name=self.name,
-                ) from exc
+        org_settings = None
+        if org_id and db:
+            org_settings = await self._get_org_settings(org_id, db)
 
-        return [sm["path"] for sm in resp.json().get("sitemap", [])]
-
-    async def list_sites(
-        self,
-        org_id: str | None = None,
-        db: AsyncSession | None = None,
-    ) -> list[str]:
-        """Return verified site URLs. Callable without org_id/db for dev testing."""
-        creds_info = await self.get_credentials(org_id, db)
-        async with self._build_authed_client(creds_info) as client:
-            try:
-                resp = await client.get("/sites")
-                resp.raise_for_status()
-            except httpx.HTTPStatusError as exc:
-                raise IntegrationError(
-                    f"GSC list sites failed: {exc}",
-                    status_code=exc.response.status_code,
-                    integration_name=self.name,
-                ) from exc
-
-        return [entry["siteUrl"] for entry in resp.json().get("siteEntry", [])]
+        service = self._build_service(org_settings)
+        from urllib.parse import quote
+        result = service.sitemaps().list(siteUrl=site_url).execute()
+        return [sm["path"] for sm in result.get("sitemap", [])]
 
     async def health_check(self) -> bool:
-        """Check Google API reachability — no credentials required.
-
-        Pings the OAuth2 token endpoint (always returns 405 on GET, never 5xx)
-        to confirm network connectivity to Google's APIs.
-        """
+        """Check Google API reachability — no credentials required."""
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get("https://oauth2.googleapis.com/token")
-            # 405 Method Not Allowed is expected for GET — still means we can reach Google
             return resp.status_code < 500
         except Exception:
             return False
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _encode_site(site_url: str) -> str:
-    from urllib.parse import quote
-    return quote(site_url, safe="")
-
 
 def _normalise_row(row: dict, dimensions: list[str]) -> dict:
     """Flatten GSC's {keys: [...], clicks, impressions, ctr, position} into a flat dict."""

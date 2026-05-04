@@ -1,0 +1,66 @@
+{
+  "agent_name": "rank_tracker",
+  "description": "Golden trace for RankTrackerAgent — snapshots GSC keyword positions into rank_tracking, classifies each as ranking/quick_win/not_ranking",
+  "input_params": {
+    "site_url": "https://example.com",
+    "days": 30
+  },
+  "preconditions": {
+    "USE_MOCK_DATA": "true",
+    "required_tables": ["keywords", "rank_tracking"],
+    "notes": "Requires at least one keyword with status='validated'; rank_tracking is append-only (never upserted)"
+  },
+  "mock_gsc_data": [
+    {"query": "ai marketing automation", "clicks": 142, "impressions": 1500, "ctr": 0.094, "position": 4.2},
+    {"query": "multi agent system tutorial", "clicks": 12, "impressions": 850, "ctr": 0.014, "position": 14.5},
+    {"query": "project management software", "clicks": 8, "impressions": 600, "ctr": 0.013, "position": 22.1}
+  ],
+  "classification_rules": {
+    "ranking": "position 1.0 – 10.0 (inclusive)",
+    "quick_win": "position 11.0 – 30.0 (inclusive)",
+    "not_ranking": "position > 30.0 or absent from GSC"
+  },
+  "expected_db_records": [
+    {
+      "table": "rank_tracking",
+      "operation": "INSERT",
+      "fields": {
+        "org_id": "uuid of the running org",
+        "keyword_id": "uuid FK → keywords.id",
+        "keyword": "string",
+        "position": "float or null",
+        "previous_position": "float or null (from most recent prior snapshot)",
+        "status": "one of: ranking, quick_win, not_ranking",
+        "source": "gsc"
+      },
+      "notes": "One INSERT per validated keyword; always appended, never upserted"
+    },
+    {
+      "table": "agent_runs",
+      "fields": {
+        "agent_name": "rank_tracker",
+        "status": "success",
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "cost_usd": 0.0
+      }
+    }
+  ],
+  "expected_result": {
+    "status": "success",
+    "data": {
+      "total_tracked": "int == sum(ranking + quick_wins + not_ranking)",
+      "ranking": "int >= 0",
+      "quick_wins": "int >= 0",
+      "not_ranking": "int >= 0",
+      "gsc_rows_fetched": "int >= 0",
+      "site_url": "string matching input site_url"
+    }
+  },
+  "edge_cases": {
+    "no_validated_keywords": "returns success with total_tracked=0, message field present",
+    "gsc_unavailable": "returns success; all keywords classified as not_ranking; gsc_rows_fetched=0",
+    "missing_site_url": "returns status=failed",
+    "tokens_used": "always 0 — no LLM calls"
+  }
+}

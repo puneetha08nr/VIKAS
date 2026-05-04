@@ -37,7 +37,13 @@ RUN uv pip install --system \
     tiktoken>=0.7.0 \
     cryptography>=42.0.0 \
     pyyaml>=6.0.0 \
-    google-auth>=2.29.0
+    google-auth>=2.29.0 \
+    google-auth-oauthlib>=1.2.0 \
+    google-auth-httplib2>=0.2.0 \
+    google-api-python-client>=2.130.0 \
+    pytrends>=4.9.0 \
+    "beautifulsoup4>=4.12.0" \
+    "lxml>=5.2.0"
 
 # Copy application code
 COPY apps/api/ .

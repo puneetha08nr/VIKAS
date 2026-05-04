@@ -73,10 +73,12 @@ Thumbs.db
 *.swp
 *.swo
 
-# Alembic
-apps/api/alembic.ini
 
 # Media / uploads
 *.mp4
 *.mov
 *.avi
+
+# GSC OAuth credentials — contain secrets, never commit
+gsc_oauth_client.json
+gsc_token.json

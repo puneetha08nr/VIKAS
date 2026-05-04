@@ -1,0 +1,57 @@
+{
+  "agent_name": "gap_analyzer",
+  "description": "Golden trace for GapAnalyzerAgent — scores competitive gap for each opportunity using GSC position data and competitor content coverage",
+  "input_params": {
+    "site_url": "https://example.com"
+  },
+  "preconditions": {
+    "USE_MOCK_DATA": "true",
+    "required_tables": ["keywords", "opportunities", "competitor_content"],
+    "notes": "Requires at least one validated keyword with an opportunity row; competitor_content may be empty (yields coverage_score=0)"
+  },
+  "mock_gsc_data": [
+    {"query": "ai marketing automation", "clicks": 142, "impressions": 1500, "ctr": 0.094, "position": 4.2},
+    {"query": "multi agent system tutorial", "clicks": 12, "impressions": 850, "ctr": 0.014, "position": 14.5},
+    {"query": "project management software", "clicks": 8, "impressions": 600, "ctr": 0.013, "position": 22.1}
+  ],
+  "gap_score_formula": {
+    "coverage_score": "min(5.0, competitor_pages_found * 1.5)",
+    "position_score": {
+      "None (not in GSC)": 5.0,
+      "> 30": 4.0,
+      "11-30 (quick win)": 3.0,
+      "1-10 (page 1)": 1.0
+    },
+    "final": "min(10.0, coverage_score + position_score), rounded to 2dp"
+  },
+  "expected_db_records": [
+    {
+      "table": "opportunities",
+      "operation": "UPDATE",
+      "fields": {
+        "competitive_gap_score": "computed float in range [0.0, 10.0]"
+      },
+      "notes": "One UPDATE per opportunity row processed"
+    },
+    {
+      "table": "agent_runs",
+      "fields": {
+        "agent_name": "gap_analyzer",
+        "status": "success"
+      }
+    }
+  ],
+  "expected_result": {
+    "status": "success",
+    "data": {
+      "gaps_scored": "int >= 0",
+      "keywords_in_gsc": "int >= 0",
+      "gsc_rows_fetched": "int >= 0"
+    }
+  },
+  "edge_cases": {
+    "no_opportunities": "returns success with gaps_scored=0, message field present",
+    "gsc_unavailable": "falls back to gsc_rows_fetched=0; all keywords treated as not-in-GSC (position_score=5.0)",
+    "missing_site_url": "returns status=failed"
+  }
+}

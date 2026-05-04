@@ -1,0 +1,16 @@
+{
+  "input_params": {
+    "keywords": ["ai marketing", "seo automation", "content strategy"]
+  },
+  "mock_pytrends_return": [
+    {"query": "ai marketing", "momentum": 7.8},
+    {"query": "seo automation", "momentum": 5.2},
+    {"query": "content strategy", "momentum": 4.1}
+  ],
+  "expected_db_table": "trend_signals",
+  "min_rows": 3,
+  "expected_result": {
+    "status": "success",
+    "data_fields_present": ["signals_written", "keywords_checked"]
+  }
+}

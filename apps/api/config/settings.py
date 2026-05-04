@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     # ── Integrations ──────────────────────────────────────────────────────────
     gsc_service_account_json: str = ""
     gsc_site_url: str = ""
+    gsc_client_id: str = ""
+    gsc_client_secret: str = ""
+    gsc_refresh_token: str = ""
     ga4_property_id: str = ""
     ga4_service_account_json: str = ""
     wordpress_url: str = ""

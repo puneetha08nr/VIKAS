@@ -263,6 +263,41 @@ _GSC_BASE = "https://searchconsole.googleapis.com/webmasters/v3"
 
 ---
 
+---
+
+## trend_collector agent
+
+### Issue 21 — pytrends is sync; blocks the event loop if called directly in async execute()
+**Symptom:** Calling `TrendReq(...).interest_over_time()` directly inside an `async def execute()` blocks the entire asyncio event loop for the duration of the HTTP request to Google Trends (~1-3 seconds per batch).
+
+**Root cause:** pytrends uses the `requests` library internally, which is synchronous. Calling blocking I/O directly in an async function stalls all other coroutines until it returns.
+
+**Fix:** Wrap each pytrends batch call with `asyncio.get_running_loop().run_in_executor(None, _fetch_trends_sync, ...)`. This offloads the blocking call to a thread pool worker, letting the event loop remain responsive. The function itself is a plain sync function (no async).
+
+**Rule:** Any third-party library that uses `requests` (not `httpx`/`aiohttp`) must be called via `run_in_executor` in async agents. The fallback path (neutral 5.0 momentum on any exception) ensures pytrends rate-limit errors never fail the agent.
+
+---
+
+## competitor_monitor agent / SitemapIntegration
+
+### Issue 22 — ElementTree element truth-value falsy for leaf nodes; `or` fallback swallowed namespace-qualified finds
+**Symptom:** `_parse_sitemap_xml` returned `[]` for any sitemap that used the standard `xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"` namespace. Non-namespaced sitemaps parsed correctly.
+
+**Root cause:** The parser used `child.find(f"{{{ns}}}loc") or child.find("loc")` to handle both namespaced and non-namespaced XML. `child.find(f"{{{ns}}}loc")` correctly returned a `<loc>` element, but Python's `or` evaluated the element's truth value. In `xml.etree.ElementTree`, leaf elements (no subelement children) have falsy truth values — `<loc>https://...</loc>` has no child elements so `bool(element)` returned `False`. The `or` then fell through to `child.find("loc")` (no namespace), which returned `None` since the tag is namespaced. Result: every `loc_el` was `None`, no URLs collected.
+
+**Fix:** Replace boolean `or` with explicit `is None` check:
+```python
+loc_el = child.find(f"{{{ns}}}{loc_tag}")
+if loc_el is None:
+    loc_el = child.find(loc_tag)
+```
+
+Same fix for `children`: `root.findall(f"{{{ns}}}{child_tag}")` returns a list (always truthy or empty), so `if not children:` is safe for the list-level fallback.
+
+**Rule:** Never test XML elements with boolean operators (`or`, `not`, `if element`). Always use `element is None` / `element is not None`. Python raises `DeprecationWarning` now; future versions will always return `True` which would break the fallback logic in the opposite direction.
+
+---
+
 ### Issue 20 — GSC 403 means "API not enabled in GCP", not "permission denied on property"
 **Symptom:** After fixing the base URL and loading real credentials, `list_sites()` still returned `403 Forbidden`.
 

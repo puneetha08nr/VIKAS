@@ -1,0 +1,74 @@
+Running agent: opportunity_scorer
+  org_id : 00000000-0000-0000-0000-000000000001
+  run_id : 9f06c8e3-9274-44a5-90db-e2b22f05df31
+  params : {}
+
+2026-05-04 15:05:25,703 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-05-04 15:05:25,703 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-04 15:05:25,706 INFO sqlalchemy.engine.Engine select current_schema()
+2026-05-04 15:05:25,706 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-04 15:05:25,707 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-05-04 15:05:25,708 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-04 15:05:25,709 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-04 15:05:25,710 INFO sqlalchemy.engine.Engine SET app.current_org_id = '00000000-0000-0000-0000-000000000001'
+2026-05-04 15:05:25,710 INFO sqlalchemy.engine.Engine [generated in 0.00022s] ()
+2026-05-04 15:05:25,712 INFO sqlalchemy.engine.Engine INSERT INTO agent_runs (id, org_id, agent_name, status, tokens_in, tokens_out, cost_usd, started_at) VALUES ($1, $2, $3, 'running', 0, 0, 0, now()) ON CONFLICT (id) DO NOTHING
+2026-05-04 15:05:25,713 INFO sqlalchemy.engine.Engine [generated in 0.00026s] ('9f06c8e3-9274-44a5-90db-e2b22f05df31', '00000000-0000-0000-0000-000000000001', 'opportunity_scorer')
+2026-05-04 15:05:25,716 INFO sqlalchemy.engine.Engine 
+            SELECT k.id, k.keyword, k.volume, k.kd, k.cpc, k.intent
+            FROM keywords k
+            WHERE k.org_id = $1
+              AND 
+                k.status = 'validated'
+                AND NOT EXISTS (
+                    SELECT 1 FROM opportunities o WHERE o.keyword_id = k.id
+                )
+            
+            ORDER BY k.volume DESC
+        
+2026-05-04 15:05:25,716 INFO sqlalchemy.engine.Engine [generated in 0.00029s] ('00000000-0000-0000-0000-000000000001',)
+2026-05-04 15:05:25,721 INFO sqlalchemy.engine.Engine 
+            SELECT momentum FROM trend_signals
+            WHERE org_id = $1 AND query = $2
+            ORDER BY detected_at DESC LIMIT 1
+        
+2026-05-04 15:05:25,721 INFO sqlalchemy.engine.Engine [generated in 0.00036s] ('00000000-0000-0000-0000-000000000001', 'project management software')
+2026-05-04 15:05:25,725 INFO sqlalchemy.engine.Engine 
+                INSERT INTO opportunities (
+                    id, org_id, keyword_id, source,
+                    search_score, competitive_gap_score,
+                    trend_score, engagement_score,
+                    composite_score, status,
+                    format_fit_scores,
+                    created_at
+                ) VALUES (
+                    gen_random_uuid(), $1, $2, $3,
+                    $4, $5,
+                    $6, $7,
+                    $8, 'new',
+                    '{}',
+                    now()
+                )
+                ON CONFLICT DO NOTHING
+            
+2026-05-04 15:05:25,725 INFO sqlalchemy.engine.Engine [generated in 0.00031s] ('00000000-0000-0000-0000-000000000001', '8794d494-2073-46e8-91c0-6f06a634fdf2', 'keyword_research', 3.6, 5.0, 5.0, 2.8, 6.33)
+2026-05-04 15:05:25,728 INFO sqlalchemy.engine.Engine UPDATE agent_runs SET status = $1, duration_ms = $2, cost_usd = cost_usd + $3, error = $4, completed_at = $5 WHERE id = $6
+2026-05-04 15:05:25,728 INFO sqlalchemy.engine.Engine [generated in 0.00028s] ('success', 15, 0.0, None, datetime.datetime(2026, 5, 4, 9, 35, 25, 727527, tzinfo=datetime.timezone.utc), '9f06c8e3-9274-44a5-90db-e2b22f05df31')
+2026-05-04 15:05:25,730 INFO sqlalchemy.engine.Engine COMMIT
+Result:
+{
+  "status": "success",
+  "data": {
+    "opportunities_created": 1,
+    "top_opportunity": "project management software",
+    "score_range": {
+      "min": 6.33,
+      "max": 6.33
+    },
+    "note": "competitive_gap and trend are 5.0 placeholders \u2014 connect GSC and trend_collector for real values"
+  },
+  "tokens_used": 0,
+  "cost_usd": 0.0,
+  "duration_ms": 15,
+  "error": null
+}

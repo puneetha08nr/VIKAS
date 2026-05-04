@@ -1,0 +1,44 @@
+Running agent: content_extractor
+  org_id : 00000000-0000-0000-0000-000000000001
+  run_id : 8ce06cbd-b4f5-42ea-8327-27136e0e93a1
+  params : {}
+
+2026-05-04 16:34:50,636 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-05-04 16:34:50,636 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-04 16:34:50,638 INFO sqlalchemy.engine.Engine select current_schema()
+2026-05-04 16:34:50,638 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-04 16:34:50,640 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-05-04 16:34:50,640 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-04 16:34:50,641 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-04 16:34:50,641 INFO sqlalchemy.engine.Engine SET app.current_org_id = '00000000-0000-0000-0000-000000000001'
+2026-05-04 16:34:50,641 INFO sqlalchemy.engine.Engine [generated in 0.00014s] ()
+2026-05-04 16:34:50,643 INFO sqlalchemy.engine.Engine INSERT INTO agent_runs (id, org_id, agent_name, status, tokens_in, tokens_out, cost_usd, started_at) VALUES ($1, $2, $3, 'running', 0, 0, 0, now()) ON CONFLICT (id) DO NOTHING
+2026-05-04 16:34:50,643 INFO sqlalchemy.engine.Engine [generated in 0.00017s] ('8ce06cbd-b4f5-42ea-8327-27136e0e93a1', '00000000-0000-0000-0000-000000000001', 'content_extractor')
+2026-05-04 16:34:50,645 INFO sqlalchemy.engine.Engine 
+            SELECT cc.id, cc.url, c.domain
+            FROM competitor_content cc
+            JOIN competitors c ON cc.competitor_id = c.id
+            WHERE cc.org_id = $1
+              AND cc.body IS NULL
+              
+            ORDER BY cc.created_at
+            LIMIT $2
+            
+2026-05-04 16:34:50,645 INFO sqlalchemy.engine.Engine [generated in 0.00016s] ('00000000-0000-0000-0000-000000000001', 100)
+2026-05-04 16:34:51,347 INFO sqlalchemy.engine.Engine UPDATE agent_runs SET status = $1, duration_ms = $2, cost_usd = cost_usd + $3, error = $4, completed_at = $5 WHERE id = $6
+2026-05-04 16:34:51,347 INFO sqlalchemy.engine.Engine [generated in 0.00045s] ('success', 703, 0.0, None, datetime.datetime(2026, 5, 4, 11, 4, 51, 346341, tzinfo=datetime.timezone.utc), '8ce06cbd-b4f5-42ea-8327-27136e0e93a1')
+2026-05-04 16:34:51,350 INFO sqlalchemy.engine.Engine COMMIT
+Result:
+{
+  "status": "success",
+  "data": {
+    "total": 1,
+    "extracted": 0,
+    "failed": 1,
+    "skipped": 0
+  },
+  "tokens_used": 0,
+  "cost_usd": 0.0,
+  "duration_ms": 703,
+  "error": null
+}
