@@ -1,6 +1,12 @@
-import json
+"""
+keyword_research — SEO data provider driven, no LLM.
+
+Primary source: DataForSEO Keywords Ideas API
+Clustering:     Pure Python by intent
+Scoring:        Pure Python composite formula
+"""
 import logging
-import re
+import uuid
 from typing import Any
 
 from sqlalchemy import text
@@ -8,7 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.agent_base import AgentContext, AgentResult, BaseAgent
 from core.agent_registry import register
-from core.prompt_registry import PromptRegistry
+from integrations.dataforseo import DataForSEOIntegration
+from integrations.base import IntegrationError
 
 logger = logging.getLogger(__name__)
 
@@ -19,123 +26,209 @@ class KeywordResearchAgent(BaseAgent):
     tier = "fast"
 
     async def execute(self, ctx: AgentContext) -> AgentResult:
-        seed = ctx.params["seed_keyword"]
+        seed = ctx.params.get("seed_keyword", "").strip()
+        if not seed:
+            return AgentResult(
+                status="failed",
+                data={},
+                tokens_used=0,
+                cost_usd=0.0,
+                error="seed_keyword param is required",
+            )
+
         org_id = ctx.org_id
 
-        # 1. Load prompt from registry — fails loudly if not seeded
-        prompt_template = await PromptRegistry().get("keyword_research", ctx.db)
+        # ── Step 1: Fetch keyword ideas from DataForSEO ──────────────────────
+        integration = DataForSEOIntegration()
 
-        # 2. Build prompt — substitute seed keyword into template
-        prompt = prompt_template.replace("SEED_KEYWORD", seed)
+        try:
+            raw_keywords = await integration.get_keyword_ideas(
+                seed=seed,
+                org_id=org_id,
+                db=ctx.db,
+            )
+        except IntegrationError as e:
+            logger.error("keyword_research: DataForSEO failed: %s", e)
+            return AgentResult(
+                status="failed",
+                data={},
+                tokens_used=0,
+                cost_usd=0.0,
+                error=(
+                    "DataForSEO credentials not configured or API call failed. "
+                    "Add DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD in "
+                    "Settings → Integrations. "
+                    f"Detail: {e}"
+                ),
+            )
 
-        # 3. Call LLM — expect JSON list back
-        response = await self.call_llm(ctx, prompt)
-        print(f"[keyword_research] raw LLM response:\n{response}\n")
+        if not raw_keywords:
+            return AgentResult(
+                status="partial",
+                data={"keywords_found": 0, "seed": seed},
+                tokens_used=0,
+                cost_usd=0.0,
+                error="DataForSEO returned no keyword ideas for this seed",
+            )
 
-        # 4. Parse response safely
-        keywords = _parse_keyword_json(response)
+        # ── Step 2: Cluster by intent (pure Python) ───────────────────────────
+        clusters = _cluster_by_intent(raw_keywords)
+        # e.g. {"commercial": [...], "informational": [...]}
 
-        # 5. Write to DB via RLS-scoped session
-        await _save_keywords(keywords, org_id, agent_name=self.name, db=ctx.db)
+        # ── Step 3: Write clusters + keywords to DB ───────────────────────────
+        total_saved = 0
+        for intent, keywords in clusters.items():
+            if not keywords:
+                continue
+
+            cluster_id = await _create_cluster(
+                org_id=org_id,
+                name=f"{seed} — {intent}",
+                intent=intent,
+                db=ctx.db,
+            )
+
+            saved = await _save_keywords(
+                keywords=keywords,
+                org_id=org_id,
+                cluster_id=cluster_id,
+                source_agent=self.name,
+                source_run_id=ctx.run_id,
+                db=ctx.db,
+            )
+            total_saved += saved
+
+        # ── Step 4: Priority score (pure Python) ──────────────────────────────
+        await _score_keywords(org_id=org_id, run_id=ctx.run_id, db=ctx.db)
 
         return AgentResult(
             status="success",
-            data={"keywords_found": len(keywords), "seed": seed},
-            tokens_used=ctx.llm.last_tokens_used,
-            cost_usd=ctx.llm.last_cost_usd,
+            data={
+                "keywords_found": total_saved,
+                "seed": seed,
+                "clusters": {k: len(v) for k, v in clusters.items()},
+                "data_source": "dataforseo",
+            },
+            tokens_used=0,
+            cost_usd=0.0,
         )
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _parse_keyword_json(response: str) -> list[dict[str, Any]]:
-    """Extract a JSON array from the LLM response.
+def _cluster_by_intent(keywords: list[dict]) -> dict[str, list[dict]]:
+    """Group keywords by intent field. No LLM."""
+    clusters: dict[str, list[dict]] = {}
+    for kw in keywords:
+        intent = (kw.get("intent") or "informational").lower().strip()
+        clusters.setdefault(intent, []).append(kw)
+    # return only non-empty buckets
+    return {k: v for k, v in clusters.items() if v}
 
-    Handles:
-    - Clean JSON arrays
-    - Arrays wrapped in markdown code fences
-    - Partial or malformed JSON → returns empty list (logged as warning)
+
+def _priority_score(volume: int, kd: float, intent: str) -> float:
     """
-    # Strip markdown code fences if present
-    cleaned = re.sub(r"```(?:json)?\s*", "", response, flags=re.IGNORECASE).strip()
-    # Find the outermost JSON array
-    start = cleaned.find("[")
-    end = cleaned.rfind("]")
-    if start == -1 or end == -1 or end <= start:
-        logger.warning("keyword_research: no JSON array found in LLM response")
-        return []
+    Composite priority score — pure arithmetic.
+    Higher = more worth targeting.
 
-    try:
-        data = json.loads(cleaned[start : end + 1])
-    except json.JSONDecodeError as exc:
-        logger.warning("keyword_research: JSON parse failed: %s", exc)
-        return []
+    Formula: (volume / 1000) * (10 - kd) * intent_multiplier
+    """
+    multiplier = 2.0 if intent in ("commercial", "transactional") else 1.0
+    return round((volume / 1000) * max(0.0, 10.0 - kd) * multiplier, 3)
 
-    if not isinstance(data, list):
-        logger.warning("keyword_research: expected list, got %s", type(data).__name__)
-        return []
 
-    result = []
-    for item in data:
-        if isinstance(item, dict):
-            result.append(item)
-        elif isinstance(item, str) and item.strip():
-            # LLM returned a plain string array — wrap so _save_keywords can handle it uniformly
-            result.append({"keyword": item.strip()})
-        else:
-            logger.warning("keyword_research: unexpected item type %s in response array, skipping", type(item).__name__)
-    return result
+async def _create_cluster(
+    org_id: str,
+    name: str,
+    intent: str,
+    db: AsyncSession,
+) -> str:
+    cluster_id = str(uuid.uuid4())
+    await db.execute(
+        text(
+            "INSERT INTO keyword_clusters "
+            "(id, org_id, name, intent, created_at) "
+            "VALUES (:id, :org_id, :name, :intent, now()) "
+            "ON CONFLICT DO NOTHING"
+        ),
+        {"id": cluster_id, "org_id": org_id, "name": name, "intent": intent},
+    )
+    return cluster_id
 
 
 async def _save_keywords(
-    keywords: list[dict[str, Any]],
+    keywords: list[dict],
     org_id: str,
-    agent_name: str,
+    cluster_id: str,
+    source_agent: str,
+    source_run_id: str,
     db: AsyncSession,
-) -> None:
-    """Bulk-insert keyword rows. Skips duplicates for this org via ON CONFLICT DO NOTHING."""
-    if not keywords:
-        return
-
+) -> int:
+    """Insert keywords. Returns count of rows actually inserted."""
+    saved = 0
     for kw in keywords:
-        keyword_text = str(kw.get("keyword", "")).strip()
+        keyword_text = str(kw.get("keyword") or "").strip()
         if not keyword_text:
             continue
 
-        await db.execute(
+        volume = int(kw.get("volume") or 0)
+        kd = float(kw.get("kd") or 0.0)
+        cpc = float(kw.get("cpc") or 0.0)
+        intent = str(kw.get("intent") or "informational").lower().strip()
+        priority = _priority_score(volume, kd, intent)
+
+        result = await db.execute(
             text(
                 "INSERT INTO keywords "
-                "(id, org_id, keyword, volume, kd, cpc, intent, reason, status, source_agent, "
-                "created_at, updated_at) "
+                "(id, org_id, keyword, volume, kd, cpc, intent, "
+                " cluster_id, status, source_agent, source_run_id, "
+                " data_source, priority_score, created_at, updated_at) "
                 "VALUES "
                 "(gen_random_uuid(), :org_id, :keyword, :volume, :kd, :cpc, "
-                ":intent, :reason, 'raw', :source_agent, now(), now()) "
-                "ON CONFLICT DO NOTHING"
+                " :intent, :cluster_id, 'raw', :source_agent, :source_run_id, "
+                " 'dataforseo', :priority_score, now(), now()) "
+                "ON CONFLICT DO NOTHING "
+                "RETURNING id"
             ),
             {
                 "org_id": org_id,
                 "keyword": keyword_text,
-                "volume": _int_or_none(kw.get("volume") or kw.get("search_volume")),
-                "kd": _float_or_none(kw.get("kd") or kw.get("keyword_difficulty") or kw.get("difficulty")),
-                "cpc": _float_or_none(kw.get("cpc")),
-                "intent": str(kw.get("intent") or kw.get("search_intent") or "").strip() or None,
-                "reason": str(kw.get("reason") or kw.get("rationale") or kw.get("why") or "").strip() or None,
-                "source_agent": agent_name,
+                "volume": volume,
+                "kd": kd,
+                "cpc": cpc,
+                "intent": intent,
+                "cluster_id": cluster_id,
+                "source_agent": source_agent,
+                "source_run_id": source_run_id,
+                "priority_score": priority,
             },
         )
+        if result.rowcount:
+            saved += 1
 
     await db.flush()
+    return saved
 
 
-def _int_or_none(value: Any) -> int | None:
-    try:
-        return int(value) if value is not None else None
-    except (TypeError, ValueError):
-        return None
-
-
-def _float_or_none(value: Any) -> float | None:
-    try:
-        return float(value) if value is not None else None
-    except (TypeError, ValueError):
-        return None
+async def _score_keywords(org_id: str, run_id: str, db: AsyncSession) -> None:
+    """
+    Update priority_score for keywords from this run.
+    Already set during insert — this pass updates any that
+    were skipped due to ON CONFLICT (existing rows).
+    """
+    await db.execute(
+        text(
+            "UPDATE keywords "
+            "SET priority_score = "
+            "  ROUND("
+            "    ((volume::numeric / 1000) "
+            "    * GREATEST(0, 10 - kd::numeric) "
+            "    * CASE WHEN intent IN ('commercial','transactional') "
+            "           THEN 2.0 ELSE 1.0 END)::numeric, "
+            "  3) "
+            "WHERE org_id = :org_id "
+            "  AND source_run_id = :run_id "
+            "  AND priority_score IS NULL"
+        ),
+        {"org_id": org_id, "run_id": run_id},
+    )

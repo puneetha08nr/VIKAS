@@ -22,6 +22,7 @@ from db.models.preferences import Preference, PreferenceSource  # noqa: E402, F4
 from db.models.prompts import Prompt  # noqa: E402, F401
 from db.models.agent_runs import AgentRun, AgentRunStatus  # noqa: E402, F401
 from db.models.pipeline_runs import PipelineRun, PipelineRunStatus  # noqa: E402, F401
+from db.models.eval_log import EvalLog  # noqa: E402, F401
 
 __all__ = [
     "Base",
@@ -40,4 +41,5 @@ __all__ = [
     "Prompt",
     "AgentRun", "AgentRunStatus",
     "PipelineRun", "PipelineRunStatus",
+    "EvalLog",
 ]

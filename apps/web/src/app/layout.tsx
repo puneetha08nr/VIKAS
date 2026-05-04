@@ -8,6 +8,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Vikas",
   description: "AI Marketing Platform",
+  verification: {
+    google: "3P6V0kg0Mvw7tWUvf8U1Y2zb32t6h7v2mT6Fb7Bz3Hc",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

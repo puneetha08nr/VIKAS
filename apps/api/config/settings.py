@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     )
 
     # ── Database ──────────────────────────────────────────────────────────────
-    database_url: str
+    database_url: str        # vikas_app — restricted user, RLS enforced (app runtime)
+    admin_database_url: str = ""  # vikas_admin — DDL privileges (Alembic only; optional at runtime)
     redis_url: str = "redis://localhost:6379/0"
 
     # ── App ───────────────────────────────────────────────────────────────────
@@ -32,6 +33,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
 
     # ── LLM providers ─────────────────────────────────────────────────────────
+    llm_provider: str = "ollama"   # ollama | google | anthropic | openai
     openai_api_key: str = ""
     anthropic_api_key: str = ""
     gemini_api_key: str = ""
@@ -45,6 +47,8 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_anon_key: str = ""
     supabase_service_role_key: str = ""
+    # Set DEV_AUTH_BYPASS=true to skip Supabase verification in local dev
+    dev_auth_bypass: bool = False
 
     # ── Encryption ────────────────────────────────────────────────────────────
     # Generate with: python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"

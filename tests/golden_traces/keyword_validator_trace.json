@@ -1,0 +1,48 @@
+{
+  "input_params": {
+    "keyword_ids": [
+      "aaaaaaaa-0000-0000-0000-000000000001",
+      "aaaaaaaa-0000-0000-0000-000000000002",
+      "aaaaaaaa-0000-0000-0000-000000000003"
+    ]
+  },
+  "mock_keyword_rows": [
+    {
+      "id": "aaaaaaaa-0000-0000-0000-000000000001",
+      "keyword": "ai marketing tools",
+      "volume": 1000,
+      "kd": 3.5,
+      "cpc": 4.50,
+      "intent": "commercial",
+      "status": "raw"
+    },
+    {
+      "id": "aaaaaaaa-0000-0000-0000-000000000002",
+      "keyword": "marketing automation software",
+      "volume": 2000,
+      "kd": 5.0,
+      "cpc": 6.20,
+      "intent": "commercial",
+      "status": "raw"
+    },
+    {
+      "id": "aaaaaaaa-0000-0000-0000-000000000003",
+      "keyword": "what is digital marketing",
+      "volume": 8000,
+      "kd": 2.0,
+      "cpc": 1.20,
+      "intent": "informational",
+      "status": "raw"
+    }
+  ],
+  "mock_llm_response": "[{\"keyword_id\": \"aaaaaaaa-0000-0000-0000-000000000001\", \"keyword\": \"ai marketing tools\", \"worth_targeting\": true, \"reason\": \"High commercial intent with achievable difficulty\"}, {\"keyword_id\": \"aaaaaaaa-0000-0000-0000-000000000002\", \"keyword\": \"marketing automation software\", \"worth_targeting\": true, \"reason\": \"Strong purchase intent, realistic for our domain authority\"}, {\"keyword_id\": \"aaaaaaaa-0000-0000-0000-000000000003\", \"keyword\": \"what is digital marketing\", \"worth_targeting\": false, \"reason\": \"Informational intent attracts students, not buyers\"}]",
+  "expected_result": {
+    "status": "success",
+    "data": {
+      "total": 3,
+      "validated": 2,
+      "archived": 1,
+      "data_source": "llm_estimate"
+    }
+  }
+}

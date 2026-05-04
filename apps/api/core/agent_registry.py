@@ -21,3 +21,31 @@ def get(name: str) -> "BaseAgent":
 
 def list_agents() -> list[str]:
     return list(REGISTRY.keys())
+
+
+def import_all_agents() -> None:
+    """Import all agent modules so @register decorators fire."""
+    import importlib
+    import logging
+
+    agent_modules = [
+        "agents.seo.keyword_research",
+        "agents.seo.keyword_validator",
+        "agents.seo.opportunity_scorer",
+        "agents.seo.gap_analyzer",
+        "agents.seo.rank_tracker",
+        "agents.content.content_director",
+        "agents.content.article_planner",
+        "agents.content.article_writer",
+        "agents.content.linkedin_agent",
+        "agents.knowledge.document_ingester",
+        "agents.knowledge.brand_voice_keeper",
+        "agents.knowledge.rag_searcher",
+        "agents.knowledge.wordpress_publisher",
+    ]
+
+    for module in agent_modules:
+        try:
+            importlib.import_module(module)
+        except ImportError as exc:
+            logging.warning("Could not import agent module %s: %s", module, exc)

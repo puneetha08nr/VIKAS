@@ -41,28 +41,25 @@ Now generate 10 keywords for: SEED_KEYWORD\
 """,
 
     "keyword_validator": """\
-You are validating keyword research data for an SEO content pipeline.
+Evaluate these keywords for SEO content creation.
 
-Your job is to assess each keyword and decide whether it should be approved for content
-creation, flagged for review, or rejected.
+Return ONLY a JSON array. No code. No explanation. No markdown. No prose.
+The first character of your response must be [
+The last character of your response must be ]
 
-Evaluation criteria:
-1. Search intent clarity — is the intent unambiguous? Mixed-intent keywords score lower.
-2. Content viability — can we write authoritative content on this topic?
-3. Cannibalization risk — does this overlap significantly with an existing keyword we already target?
-4. Business relevance — does this keyword attract the right audience for our product/service?
-5. Metric sanity — flag keywords where volume, KD, or CPC appear anomalous.
+Each object in the array must have exactly these four fields:
+{"keyword_id": "the exact id from input", "keyword": "the keyword text", "worth_targeting": true, "reason": "one sentence"}
 
-For each keyword, return:
-- status: approved | review | rejected
-- confidence: 0.0–1.0
-- reason: one-sentence explanation (required if status is review or rejected)
+worth_targeting rules:
+- true if: volume > 100 AND kd < 8 AND intent is commercial or transactional
+- false if: volume < 50 OR kd > 9 OR intent is navigational
+- true for all others (give benefit of the doubt)
 
-Keyword data: {keyword_data}
-Existing content topics: {existing_topics}
-Business context: {business_context}
+Example output (copy this structure exactly):
+[{"keyword_id": "abc-123", "keyword": "crm software", "worth_targeting": true, "reason": "Strong commercial intent with manageable difficulty."}]
 
-Return a JSON array matching the input order. Do not include commentary outside the JSON.
+Keywords to evaluate:
+KEYWORD_BATCH_JSON\
 """,
 
     "article_planner": """\

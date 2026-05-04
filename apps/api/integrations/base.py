@@ -107,6 +107,7 @@ class _CircuitBreaker:
 _RETRY_STATUSES = {429, 500, 502, 503}
 _MAX_RETRIES = 3
 _BACKOFF_BASE = 1.0  # seconds — doubles each retry
+_DEFAULT_TIMEOUT = 30.0  # seconds — generous for async event-loop environments
 
 
 class BaseIntegration(ABC):
@@ -139,7 +140,7 @@ class BaseIntegration(ABC):
         for attempt in range(_MAX_RETRIES):
             t0 = time.monotonic()
             try:
-                async with httpx.AsyncClient() as client:
+                async with httpx.AsyncClient(timeout=_DEFAULT_TIMEOUT) as client:
                     response = await client.request(method, url, **kwargs)
                 response_ms = int((time.monotonic() - t0) * 1000)
 

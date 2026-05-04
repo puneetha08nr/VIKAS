@@ -6,9 +6,7 @@ celery_app = Celery(
     "vikas",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=[
-        # "workers.tasks",  # uncomment as task modules are added
-    ],
+    include=["core.task_queue"],
 )
 
 celery_app.conf.update(

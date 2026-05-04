@@ -2,14 +2,13 @@ import asyncio
 import uuid
 from datetime import datetime, timezone
 
-from celery import Celery
 from pydantic import BaseModel, Field
 
 from config.settings import settings
+from workers.celery_app import celery_app
+from core.agent_registry import import_all_agents
 
-celery_app = Celery("vikas", broker=settings.redis_url)
-celery_app.conf.task_serializer = "json"
-celery_app.conf.accept_content = ["json"]
+import_all_agents()
 
 
 class AgentCommand(BaseModel):
@@ -31,18 +30,27 @@ def dispatch(command: AgentCommand) -> str:
 
 @celery_app.task(name="core.task_queue.execute_agent")
 def execute_agent(command_dict: dict) -> None:
-    """Celery entry point — deserializes the command and runs the agent."""
-    asyncio.run(_run_agent(command_dict))
+    """Celery entry point — always runs on a fresh event loop to avoid pool conflicts."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(_run_agent(command_dict))
+    finally:
+        loop.run_until_complete(loop.shutdown_asyncgens())
+        loop.close()
+        asyncio.set_event_loop(None)
 
 
 async def _run_agent(command_dict: dict) -> None:
     from pathlib import Path
 
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
     from core.agent_base import AgentContext
     from core.agent_registry import get as get_agent
     from core.cost_tracker import CostTracker
     from core.llm_router import LLMRouter
-    from db.session import org_session
 
     command = AgentCommand(**command_dict)
     agent = get_agent(command.agent_name)
@@ -50,13 +58,23 @@ async def _run_agent(command_dict: dict) -> None:
     config_path = Path(__file__).parent.parent / "config" / "model_tiers.yaml"
     router = LLMRouter(config_path, CostTracker(), settings)
 
-    async with org_session(command.org_id) as db:
-        ctx = AgentContext(
-            org_id=command.org_id,
-            run_id=command.run_id,
-            params=command.params,
-            config={},
-            db=db,
-            llm=router,
-        )
-        await agent.run(ctx)
+    # Fresh engine per task — never reuse the FastAPI engine across event loops.
+    engine = create_async_engine(settings.database_url, echo=False)
+    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+    try:
+        async with session_factory() as session:
+            await session.execute(
+                text(f"SET app.current_org_id = '{command.org_id}'")
+            )
+            ctx = AgentContext(
+                org_id=command.org_id,
+                run_id=command.run_id,
+                params=command.params,
+                config={},
+                db=session,
+                llm=router,
+            )
+            await agent.run(ctx)
+    finally:
+        await engine.dispose()

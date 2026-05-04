@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncGenerator
 
 import httpx
@@ -10,7 +11,9 @@ from config.settings import settings
 from db.models.organizations import Organization
 from db.session import AsyncSessionLocal, org_session
 
-_bearer = HTTPBearer()
+logger = logging.getLogger(__name__)
+
+_bearer = HTTPBearer(auto_error=False)
 
 
 async def _verify_supabase_token(token: str) -> str:
@@ -26,6 +29,11 @@ async def _verify_supabase_token(token: str) -> str:
         )
 
     if resp.status_code != 200:
+        logger.warning(
+            "Supabase token verification failed: status=%d body=%s",
+            resp.status_code,
+            resp.text[:200],
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
@@ -43,10 +51,9 @@ async def _verify_supabase_token(token: str) -> str:
 async def verify_token(
     credentials: HTTPAuthorizationCredentials = Depends(_bearer),
 ) -> str:
-    """Verify Supabase JWT and return supabase_user_id.
-    Use this on routes that authenticate the caller but do not yet have an org
-    (e.g. POST /orgs at signup time).
-    """
+    """Verify Supabase JWT and return supabase_user_id."""
+    if credentials is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No token")
     return await _verify_supabase_token(credentials.credentials)
 
 
@@ -54,8 +61,24 @@ async def get_current_org(
     credentials: HTTPAuthorizationCredentials = Depends(_bearer),
 ) -> Organization:
     """Verify Supabase JWT and return the caller's Organization.
-    Raises 401 for invalid tokens, 404 if no org is linked to this user.
+
+    In development with DEV_AUTH_BYPASS=true, skips Supabase and returns the
+    first org in the DB — no token required.
     """
+    if settings.dev_auth_bypass and settings.is_dev:
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(select(Organization).limit(1))
+            org = result.scalar_one_or_none()
+        if org is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No organization found (dev bypass active — seed the DB first)",
+            )
+        return org
+
+    if credentials is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No token")
+
     supabase_user_id = await _verify_supabase_token(credentials.credentials)
 
     async with AsyncSessionLocal() as session:

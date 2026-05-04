@@ -47,10 +47,12 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql+asyncpg://vikas:vikas_dev@db:5432/vikas
+      ADMIN_DATABASE_URL: postgresql+asyncpg://vikas:vikas_dev@db:5432/vikas
       REDIS_URL: redis://redis:6379/0
       ENV: development
       LOG_LEVEL: DEBUG
       OLLAMA_BASE_URL: http://host.docker.internal:11434
+      DEV_AUTH_BYPASS: "true"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -79,10 +81,12 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql+asyncpg://vikas:vikas_dev@db:5432/vikas
+      ADMIN_DATABASE_URL: postgresql+asyncpg://vikas:vikas_dev@db:5432/vikas
       REDIS_URL: redis://redis:6379/0
       ENV: development
       LOG_LEVEL: DEBUG
       OLLAMA_BASE_URL: http://host.docker.internal:11434
+      DEV_AUTH_BYPASS: "true"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

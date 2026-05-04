@@ -11,6 +11,7 @@ import agents.seo.keyword_research  # noqa: F401
 
 from agents.seo.keyword_research import (
     KeywordResearchAgent,
+    _normalise,
     _parse_keyword_json,
 )
 from core.agent_base import AgentContext, AgentResult
@@ -213,3 +214,173 @@ def test_parse_full_golden_trace_response() -> None:
     result = _parse_keyword_json(_MOCK_LLM_RESPONSE)
     assert len(result) == _EXPECTED_KEYWORD_COUNT
     assert all("keyword" in kw for kw in result)
+
+
+# ── Format coverage: 14 formats ───────────────────────────────────────────────
+
+def test_format1_clean_object_array() -> None:
+    raw = '[{"keyword": "seo tools", "volume": 1000, "kd": 4.5, "cpc": 2.30, "intent": "commercial"}]'
+    result = _parse_keyword_json(raw)
+    assert len(result) == 1
+    assert result[0]["keyword"] == "seo tools"
+    assert result[0]["volume"] == 1000
+    assert result[0]["kd"] == pytest.approx(4.5)
+    assert result[0]["intent"] == "commercial"
+
+
+def test_format2_mixed_strings_and_objects() -> None:
+    # strings are treated as duplicate labels; dicts carry the real data
+    raw = '["seo tools", {"keyword": "seo tools", "volume": 1000}, {"keyword": "content marketing", "volume": 800}]'
+    result = _parse_keyword_json(raw)
+    assert len(result) == 2
+    keywords = {r["keyword"] for r in result}
+    assert "seo tools" in keywords
+    assert "content marketing" in keywords
+
+
+def test_format3_raw_objects_no_array_wrapper() -> None:
+    raw = '{"keyword": "seo tools", "volume": 1000}\n{"keyword": "content marketing", "volume": 800}'
+    result = _parse_keyword_json(raw)
+    assert len(result) == 2
+    keywords = {r["keyword"] for r in result}
+    assert "seo tools" in keywords
+    assert "content marketing" in keywords
+
+
+def test_format4_plain_string_array() -> None:
+    raw = '["seo tools", "content marketing", "email marketing"]'
+    result = _parse_keyword_json(raw)
+    assert len(result) == 3
+    assert result[0]["keyword"] == "seo tools"
+    assert result[1]["keyword"] == "content marketing"
+
+
+def test_format5_nested_under_keywords_key() -> None:
+    raw = '{"keywords": [{"keyword": "seo tools", "volume": 1000}]}'
+    result = _parse_keyword_json(raw)
+    assert len(result) == 1
+    assert result[0]["keyword"] == "seo tools"
+
+
+def test_format5_nested_under_results_and_data_keys() -> None:
+    for key in ["results", "data"]:
+        raw = json.dumps({key: [{"keyword": "seo tools", "volume": 1000}]})
+        result = _parse_keyword_json(raw)
+        assert len(result) == 1, f"failed for key='{key}'"
+        assert result[0]["keyword"] == "seo tools"
+
+
+def test_format6_markdown_code_block() -> None:
+    raw = '```json\n[{"keyword": "seo tools", "volume": 1000}]\n```'
+    result = _parse_keyword_json(raw)
+    assert len(result) == 1
+    assert result[0]["keyword"] == "seo tools"
+
+
+def test_format7_trailing_commas() -> None:
+    raw = '[{"keyword": "seo tools", "volume": 1000,},]'
+    result = _parse_keyword_json(raw)
+    assert len(result) == 1
+    assert result[0]["keyword"] == "seo tools"
+
+
+def test_format8_single_quotes() -> None:
+    raw = "[{'keyword': 'seo tools', 'volume': 1000, 'intent': 'commercial'}]"
+    result = _parse_keyword_json(raw)
+    assert len(result) == 1
+    assert result[0]["keyword"] == "seo tools"
+    assert result[0]["intent"] == "commercial"
+
+
+def test_format9_numbers_as_strings() -> None:
+    raw = '[{"keyword": "seo tools", "volume": "1000", "kd": "4.5", "cpc": "2.30"}]'
+    result = _parse_keyword_json(raw)
+    assert len(result) == 1
+    assert result[0]["keyword"] == "seo tools"
+    assert result[0]["volume"] == 1000
+    assert result[0]["kd"] == pytest.approx(4.5)
+    assert result[0]["cpc"] == pytest.approx(2.30)
+
+
+def test_format10_missing_fields_partial_object() -> None:
+    raw = '[{"keyword": "seo tools"}, {"keyword": "content marketing", "volume": 1000}]'
+    result = _parse_keyword_json(raw)
+    assert len(result) == 2
+    partial = next(r for r in result if r["keyword"] == "seo tools")
+    assert partial["volume"] is None
+    assert partial["kd"] is None
+    assert partial["cpc"] is None
+    full = next(r for r in result if r["keyword"] == "content marketing")
+    assert full["volume"] == 1000
+
+
+def test_format11_text_before_and_after_json() -> None:
+    raw = 'Here are the keywords:\n[{"keyword": "seo tools", "volume": 1000}]\nHope this helps!'
+    result = _parse_keyword_json(raw)
+    assert len(result) == 1
+    assert result[0]["keyword"] == "seo tools"
+
+
+def test_format12_empty_and_whitespace_response() -> None:
+    assert _parse_keyword_json("") == []
+    assert _parse_keyword_json("   ") == []
+    assert _parse_keyword_json("\n\t\n") == []
+
+
+def test_format13_model_refusal() -> None:
+    refusals = [
+        "I cannot generate keywords for that topic.",
+        "As an AI, I don't have access to real search volume data.",
+        "I'm unable to provide keyword research for this query.",
+        "I am unable to complete this request.",
+    ]
+    for text in refusals:
+        assert _parse_keyword_json(text) == [], f"expected [] for refusal: {text!r}"
+
+
+def test_format14_single_object_not_in_array() -> None:
+    raw = '{"keyword": "seo tools", "volume": 1000, "kd": 4.5, "intent": "commercial"}'
+    result = _parse_keyword_json(raw)
+    assert len(result) == 1
+    assert result[0]["keyword"] == "seo tools"
+    assert result[0]["volume"] == 1000
+
+
+# ── _normalise unit tests ─────────────────────────────────────────────────────
+
+def test_normalise_coerces_string_numbers() -> None:
+    items = [{"keyword": "seo tools", "volume": "1500", "kd": "6.2", "cpc": "3.10"}]
+    result = _normalise(items)
+    assert result[0]["volume"] == 1500
+    assert result[0]["kd"] == pytest.approx(6.2)
+    assert result[0]["cpc"] == pytest.approx(3.10)
+
+
+def test_normalise_handles_alternate_field_names() -> None:
+    items = [{"keyword": "seo tools", "search_volume": 900, "keyword_difficulty": 5.5}]
+    result = _normalise(items)
+    assert result[0]["volume"] == 900
+    assert result[0]["kd"] == pytest.approx(5.5)
+
+
+def test_normalise_skips_items_without_keyword() -> None:
+    items = [{"volume": 1000, "kd": 4.5}, {"keyword": "valid kw"}]
+    result = _normalise(items)
+    assert len(result) == 1
+    assert result[0]["keyword"] == "valid kw"
+
+
+def test_normalise_lowercases_intent() -> None:
+    items = [{"keyword": "seo tools", "intent": "Commercial"}]
+    result = _normalise(items)
+    assert result[0]["intent"] == "commercial"
+
+
+def test_normalise_returns_none_for_missing_fields() -> None:
+    items = [{"keyword": "seo tools"}]
+    result = _normalise(items)
+    assert result[0]["volume"] is None
+    assert result[0]["kd"] is None
+    assert result[0]["cpc"] is None
+    assert result[0]["intent"] is None
+    assert result[0]["reason"] is None

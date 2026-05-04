@@ -36,7 +36,8 @@ RUN uv pip install --system \
     structlog>=24.1.0 \
     tiktoken>=0.7.0 \
     cryptography>=42.0.0 \
-    pyyaml>=6.0.0
+    pyyaml>=6.0.0 \
+    google-auth>=2.29.0
 
 # Copy application code
 COPY apps/api/ .
