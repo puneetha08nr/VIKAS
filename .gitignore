@@ -82,3 +82,6 @@ Thumbs.db
 # GSC OAuth credentials — contain secrets, never commit
 gsc_oauth_client.json
 gsc_token.json
+
+# Large generated files
+apps/web/sys
