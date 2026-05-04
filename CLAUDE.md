@@ -533,7 +533,8 @@ If any of these fail, stop. Fix before proceeding.
 | Agent | Contract | Migration | Prompt | Unit Test | CLI Verified | DB Verified | RLS Verified | Golden Trace |
 |---|---|---|---|---|---|---|---|---|
 | keyword_research | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ⬜ | ✅ |
-| keyword_validator | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| keyword_validator | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ⬜ | ✅ |
+| opportunity_scorer | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ⬜ | ⬜ |
 | gap_analyzer | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | rank_tracker | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | document_ingester | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |

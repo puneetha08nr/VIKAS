@@ -191,3 +191,85 @@ The Supabase user ID appears in API logs whenever a token is verified: look for 
 **Prevention:** The `scripts/seed_db.py` (or equivalent setup script) should seed a dev org with a known `supabase_user_id` matching the dev Supabase account, so new dev machines are immediately usable.
 
 ---
+
+## Next.js / Vercel
+
+### Issue 14 — Vercel build: `ENOENT (dashboard)/page_client-reference-manifest.js`
+**Symptom:** Vercel deployment failed during "Tracing Next.js server files": `Error: ENOENT: no such file or directory, lstat '/vercel/path0/.next/server/app/(dashboard)/page_client-reference-manifest.js'`.
+
+**Root cause:** Two pages mapped to the same `/` URL — `src/app/page.tsx` and `src/app/(dashboard)/page.tsx`. Next.js compiled `(dashboard)/page.tsx` into `(dashboard)/page.js` and wrote its `.nft.json` with a relative dep `page_client-reference-manifest.js`. But because route groups don't add a URL segment, the manifest was written to the root `app/page_client-reference-manifest.js`, not inside `(dashboard)/`. Vercel's file tracer walked `(dashboard)/page.js.nft.json`, tried to `lstat` `(dashboard)/page_client-reference-manifest.js`, and crashed.
+
+**Fix:** Deleted `src/app/(dashboard)/page.tsx`. The root redirect is handled entirely by `src/app/page.tsx` (outside the route group). After this, `(dashboard)/` contains only its sub-routes, no `page.js` is emitted there, and every `.nft.json` manifest reference resolves to a file that actually exists.
+
+**Rule:** Never have both `app/page.tsx` and `app/(group)/page.tsx` mapping to the same URL. The duplicate causes a silent manifest path mismatch that only surfaces in Vercel's file tracer, not in local builds.
+
+---
+
+## Docker / Integrations
+
+### Issue 15 — docker-compose env_file: godotenv expands `\n` in JSON values
+**Symptom:** `docker compose up -d` failed: `failed to read .env: line 30: unexpected character "\"" in variable name "\"type\": \"service_account\","`. When containers were recreated, `GSC_SERVICE_ACCOUNT_JSON` was only 45 chars (placeholder) instead of 2325 chars (real credentials).
+
+**Root cause:** docker-compose v2 uses `godotenv` to parse `env_file:` entries. `godotenv` expands `\n` escape sequences even in unquoted values. The service account JSON contains `"private_key": "-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END"`. When godotenv hit `\n` inside the private key, it inserted a real newline, splitting the JSON. The next line started with `"type": "service_account",` which the parser tried to interpret as a variable name, failing with "unexpected character".
+
+**Fix:** Wrapped the `GSC_SERVICE_ACCOUNT_JSON` value in single quotes in `.env`:
+```
+GSC_SERVICE_ACCOUNT_JSON='{"type":"service_account",...,"private_key":"-----BEGIN...\n...-----END\n",...}'
+```
+Single-quoted values in godotenv are 100% literal — no escape expansion. Both python-dotenv and docker-compose strip the surrounding quotes correctly, so all consumers see the raw JSON string.
+
+**Rule:** Any `.env` value containing `\n`, `\"`, or other backslash sequences (e.g. JSON with a private key) must be wrapped in single quotes to survive docker-compose's godotenv parser. python-dotenv on the host handles either format.
+
+---
+
+### Issue 16 — `docker compose restart` doesn't re-read env_file; stale credentials baked into containers
+**Symptom:** After updating `.env` with real GSC credentials, the container still showed `GSC_SERVICE_ACCOUNT_JSON` as a 45-char placeholder after `docker compose restart`.
+
+**Root cause:** `docker compose restart` reuses the existing container configuration snapshot — it does not re-read `env_file:` or `environment:`. Env vars are only updated when a container is recreated (`up -d` or `up -d --force-recreate`).
+
+**Fix:** Use `docker compose up -d` (after fixing any env_file format issues) to recreate containers and pick up new env var values. `restart` is only safe when you know the container config hasn't changed.
+
+---
+
+### Issue 17 — GSC API base URL deprecated: `www.googleapis.com/webmasters/v3` → 404
+**Symptom:** All GSC API calls (`list_sites`, `get_search_analytics`) returned `403 Forbidden` or `404 Not Found`.
+
+**Root cause:** The Google Search Console API migrated from `https://www.googleapis.com/webmasters/v3` (deprecated, now 404 on discovery) to `https://searchconsole.googleapis.com/webmasters/v3`. The integration used the old base URL.
+
+**Fix:** Updated `_GSC_BASE` in `integrations/google_search_console.py`:
+```python
+_GSC_BASE = "https://searchconsole.googleapis.com/webmasters/v3"
+```
+
+---
+
+### Issue 18 — GSC `health_check()` returning False: discovery URL also 404
+**Symptom:** `health_check()` returned `False` even when the container had full internet access to Google.
+
+**Root cause:** `health_check()` pinged `https://www.googleapis.com/discovery/v1/apis/webmasters/v3/rest` which also returns 404 (deprecated alongside the old base URL).
+
+**Fix:** Changed health check to ping `https://oauth2.googleapis.com/token` with a GET request. This always returns HTTP 405 (Method Not Allowed) — never a 5xx or network error — confirming Google API reachability without credentials.
+
+---
+
+### Issue 19 — `google-auth` missing from Dockerfile.api despite being in pyproject.toml
+**Symptom:** `from integrations.google_search_console import ...` raised `ModuleNotFoundError: No module named 'google'` inside the container.
+
+**Root cause:** `apps/api/pyproject.toml` listed `google-auth>=2.29.0` as a dependency, but `infra/docker/Dockerfile.api` had a hardcoded `uv pip install` list that didn't include it. The two lists were out of sync.
+
+**Fix:** Added `google-auth>=2.29.0` to the `uv pip install` list in `Dockerfile.api`. Rebuilt both `api` and `worker` images.
+
+**Rule:** When adding a new Python dependency to `pyproject.toml`, always add it to `Dockerfile.api`'s `uv pip install` list in the same commit. They are manually kept in sync.
+
+---
+
+### Issue 20 — GSC 403 means "API not enabled in GCP", not "permission denied on property"
+**Symptom:** After fixing the base URL and loading real credentials, `list_sites()` still returned `403 Forbidden`.
+
+**Root cause:** The error body (only visible by printing `response.text`) read: *"Google Search Console API has not been used in project 500830108778 before or it is disabled."* The service account credentials were valid and the token was issued, but the Search Console API was never enabled in the GCP project.
+
+**Fix:** Enable the API at: `https://console.developers.google.com/apis/api/searchconsole.googleapis.com/overview?project=<project-number>`
+
+**Diagnosis tip:** A 403 from a Google API almost always means one of: (a) API not enabled, (b) service account not authorized on the resource, or (c) quota exceeded. Always print `response.text` — the JSON body distinguishes these cases immediately. Never treat a 403 as just "permissions" without reading the error body.
+
+---
