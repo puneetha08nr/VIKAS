@@ -1,0 +1,67 @@
+{
+  "agent_name": "site_auditor",
+  "description": "Golden trace for SiteAuditorAgent — regression reference for aggregation logic and DB write",
+  "input_params": {
+    "site_url": "https://example.com",
+    "days": 30
+  },
+  "notes": {
+    "data_source": "GSC search analytics + rank_tracking table — no LLM",
+    "gsc_fallback": "If GSC unavailable (exception), gsc_rows_fetched=0 and agent continues — never fails",
+    "mock_data": "Set USE_MOCK_DATA=true in .env to use canned GSC rows without credentials",
+    "rank_query": "DISTINCT ON (keyword_id) status, position FROM rank_tracking ORDER BY keyword_id, checked_at DESC",
+    "position_classification": {
+      "ranking": "status = 'ranking' (position 1-10)",
+      "quick_win": "status = 'quick_win' (position 11-30)",
+      "not_ranking": "status = 'not_ranking' (position > 30 or never seen)"
+    },
+    "avg_position": "Computed from non-null position values only (not_ranking rows excluded)"
+  },
+  "mock_inputs": {
+    "gsc_rows": [
+      {"query": "ai marketing", "clicks": 50, "impressions": 500, "ctr": 0.1, "position": 4.2},
+      {"query": "seo tools", "clicks": 10, "impressions": 300, "ctr": 0.033, "position": 18.5}
+    ],
+    "rank_tracking_snapshots": [
+      {"status": "ranking", "position": 4.2},
+      {"status": "quick_win", "position": 18.5},
+      {"status": "quick_win", "position": 22.1},
+      {"status": "not_ranking", "position": null},
+      {"status": "not_ranking", "position": null}
+    ]
+  },
+  "expected_db_records": [
+    {
+      "table": "site_audits",
+      "fields": {
+        "org_id": "<org_id>",
+        "site_url": "https://example.com",
+        "total_keywords": 5,
+        "ranking_count": 1,
+        "quick_wins_count": 2,
+        "not_ranking_count": 2,
+        "avg_position": 14.9,
+        "gsc_rows_fetched": 2
+      }
+    }
+  ],
+  "expected_result": {
+    "status": "success",
+    "data": {
+      "site_url": "https://example.com",
+      "period_days": 30,
+      "gsc_rows_fetched": 2,
+      "ranking": 1,
+      "quick_wins": 2,
+      "not_ranking": 2,
+      "avg_position": 14.9
+    }
+  },
+  "edge_cases": {
+    "gsc_failure": "Exception from GSC → gsc_rows=[], gsc_rows_fetched=0, agent status=success",
+    "no_rank_data": "Empty rank_tracking → all counts 0, avg_position=null",
+    "all_not_ranking": "avg_position=null when all positions are null",
+    "missing_site_url": "status=failed if site_url not in params and GSC_SITE_URL not set"
+  },
+  "avg_position_formula": "round(sum(non-null positions) / count(non-null positions), 1) = round((4.2 + 18.5 + 22.1) / 3, 1) = 14.9"
+}

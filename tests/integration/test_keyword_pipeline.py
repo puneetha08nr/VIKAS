@@ -23,6 +23,7 @@ _MOCK_KEYWORDS: list[dict] = json.loads(_GOLDEN["mock_llm_response"])
 
 # ── Test 1: Happy path ────────────────────────────────────────────────────────
 
+@pytest.mark.integration
 async def test_keyword_research_end_to_end(test_org, db_engine):
     """Run KeywordResearchAgent in-process; verify keywords and audit row in DB."""
     import agents.seo.keyword_research  # noqa: F401 — ensures @register runs
@@ -90,6 +91,7 @@ async def test_keyword_research_end_to_end(test_org, db_engine):
 
 # ── Test 2: RLS isolation (security gate) ────────────────────────────────────
 
+@pytest.mark.integration
 async def test_rls_isolation(admin_db, db_engine):
     """Keywords written for org_a must not appear when querying as org_b.
 

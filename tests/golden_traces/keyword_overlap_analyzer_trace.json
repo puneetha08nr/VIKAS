@@ -1,0 +1,72 @@
+{
+  "agent_name": "keyword_overlap_analyzer",
+  "description": "Golden trace for KeywordOverlapAnalyzerAgent — regression reference for DB write pattern and match counting",
+  "input_params": {},
+  "notes": {
+    "data_source": "Pure SQL + Python string matching — no LLM, no external API",
+    "db_read_1": "SELECT id, keyword FROM keywords WHERE status = 'validated'",
+    "db_read_2": "SELECT id, url, body FROM competitor_content WHERE body IS NOT NULL",
+    "db_write": "UPDATE competitor_content SET keywords_overlap = CAST(:overlap AS jsonb) WHERE id = :id",
+    "match_algorithm": "case-insensitive substring: kw.lower() in body.lower()",
+    "keywords_overlap_type": "JSONB array of matched keyword strings (not int — stores full match detail)"
+  },
+  "mock_inputs": {
+    "validated_keywords": [
+      {"id": "kw-1", "keyword": "ai marketing"},
+      {"id": "kw-2", "keyword": "seo automation"},
+      {"id": "kw-3", "keyword": "content strategy"}
+    ],
+    "competitor_content_rows": [
+      {
+        "id": "cc-1",
+        "url": "https://competitor.com/blog/ai",
+        "body": "We use AI marketing to grow our brand with seo automation."
+      },
+      {
+        "id": "cc-2",
+        "url": "https://competitor.com/blog/seo",
+        "body": "Our content strategy focuses on organic search."
+      },
+      {
+        "id": "cc-3",
+        "url": "https://competitor.com/blog/other",
+        "body": "Completely unrelated text about plumbing."
+      }
+    ]
+  },
+  "expected_db_writes": [
+    {
+      "table": "competitor_content",
+      "operation": "UPDATE",
+      "id": "cc-1",
+      "keywords_overlap": ["ai marketing", "seo automation"]
+    },
+    {
+      "table": "competitor_content",
+      "operation": "UPDATE",
+      "id": "cc-2",
+      "keywords_overlap": ["content strategy"]
+    },
+    {
+      "table": "competitor_content",
+      "operation": "UPDATE",
+      "id": "cc-3",
+      "keywords_overlap": []
+    }
+  ],
+  "expected_result": {
+    "status": "success",
+    "data": {
+      "total_analyzed": 3,
+      "total_updated": 3,
+      "total_keyword_matches": 3,
+      "keywords_checked": 3
+    }
+  },
+  "edge_cases": {
+    "no_validated_keywords": "Returns success with total_analyzed=0 and message field",
+    "no_content_with_body": "Returns success with total_analyzed=0 and message field",
+    "zero_match_row": "Still writes empty array [] to keywords_overlap — no rows silently skipped",
+    "case_insensitive": "Body 'AI MARKETING is trending' matches keyword 'ai marketing'"
+  }
+}
