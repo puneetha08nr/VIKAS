@@ -35,6 +35,7 @@ def import_all_agents() -> None:
         "agents.seo.trend_collector",
         "agents.seo.gap_analyzer",  # registered
         "agents.seo.rank_tracker",  # registered
+        "agents.seo.site_auditor",  # registered
         "agents.content.content_director",
         "agents.content.article_planner",
         "agents.content.article_writer",
@@ -45,6 +46,7 @@ def import_all_agents() -> None:
         "agents.knowledge.wordpress_publisher",
         "agents.competitor.competitor_monitor",
         "agents.competitor.content_extractor",
+        "agents.competitor.keyword_overlap_analyzer",
     ]
 
     for module in agent_modules:

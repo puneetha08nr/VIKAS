@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.agent_base import AgentContext, AgentResult, BaseAgent
 from core.agent_registry import register
-from core.llm_router import LLMUnavailableError
 from core.contracts import KeywordValidationOutput
+from core.llm_router import LLMUnavailableError
 from core.prompt_registry import PromptRegistry
 from integrations.base import IntegrationError
 from integrations.dataforseo import DataForSEOIntegration
@@ -51,7 +51,8 @@ class KeywordValidatorAgent(BaseAgent):
             data_source = "dataforseo"
         except IntegrationError as exc:
             logger.warning(
-                "keyword_validator: DataForSEO unavailable, falling back to existing DB values: %s", exc
+                "keyword_validator: DataForSEO unavailable, "
+                "falling back to existing DB values: %s", exc
             )
 
         # 3. Merge DataForSEO metrics into in-memory rows (used for hard rules)
@@ -112,7 +113,8 @@ class KeywordValidatorAgent(BaseAgent):
                 parsed = _parse_validation_json(response, batch)
             except LLMUnavailableError as exc:
                 logger.warning(
-                    "keyword_validator: LLM unavailable for batch of %d — applying hard rules. Error: %s",
+                    "keyword_validator: LLM unavailable for batch of %d "
+                    "— applying hard rules. Error: %s",
                     len(batch), exc,
                 )
 
@@ -120,16 +122,23 @@ class KeywordValidatorAgent(BaseAgent):
                 # LLM returned garbage — apply hard rules to every keyword in this batch
                 # so they never stay stuck as raw.
                 logger.warning(
-                    "keyword_validator: LLM parse failed for batch of %d — applying hard rules only",
+                    "keyword_validator: LLM parse failed for batch of %d "
+                    "— applying hard rules only",
                     len(batch),
                 )
                 for row in batch:
                     if _should_hard_archive(row):
                         status = "archived"
-                        reason = "hard-rule fallback: failed LLM parse, volume/kd/intent out of range"
+                        reason = (
+                            "hard-rule fallback: failed LLM parse, "
+                            "volume/kd/intent out of range"
+                        )
                     else:
                         status = "validated"
-                        reason = "hard-rule fallback: LLM parse failed, metrics within acceptable range"
+                        reason = (
+                            "hard-rule fallback: LLM parse failed, "
+                            "metrics within acceptable range"
+                        )
                     parsed.append({
                         "keyword_id": str(row["id"]),
                         "keyword": row["keyword"],

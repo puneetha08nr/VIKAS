@@ -12,22 +12,20 @@ Convention:
 """
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel, field_validator, model_validator
 
 # ── Shared mixin ──────────────────────────────────────────────────────────────
 
 class _KeywordMetricsMixin(BaseModel):
     """Shared numeric fields and coercion for keyword-related outputs."""
-    volume: Optional[int] = None
-    kd: Optional[float] = None
-    cpc: Optional[float] = None
+    volume: int | None = None
+    kd: float | None = None
+    cpc: float | None = None
     data_source: str = "llm_estimate"
 
     @field_validator("volume", mode="before")
     @classmethod
-    def _coerce_volume(cls, v: object) -> Optional[int]:
+    def _coerce_volume(cls, v: object) -> int | None:
         if v is None:
             return None
         try:
@@ -37,7 +35,7 @@ class _KeywordMetricsMixin(BaseModel):
 
     @field_validator("kd", "cpc", mode="before")
     @classmethod
-    def _coerce_float(cls, v: object) -> Optional[float]:
+    def _coerce_float(cls, v: object) -> float | None:
         if v is None:
             return None
         try:
@@ -54,13 +52,13 @@ _VALID_INTENTS = frozenset({"informational", "commercial", "transactional", "nav
 class KeywordResearchOutput(_KeywordMetricsMixin):
     """One keyword row produced by keyword_research agent."""
     keyword: str
-    intent: Optional[str] = None
-    reason: Optional[str] = None
-    source_run_id: Optional[str] = None
+    intent: str | None = None
+    reason: str | None = None
+    source_run_id: str | None = None
 
     @field_validator("intent", mode="before")
     @classmethod
-    def normalise_intent(cls, v: object) -> Optional[str]:
+    def normalise_intent(cls, v: object) -> str | None:
         if not v:
             return None
         s = str(v).lower().strip()
@@ -68,7 +66,7 @@ class KeywordResearchOutput(_KeywordMetricsMixin):
 
     @field_validator("reason", mode="before")
     @classmethod
-    def normalise_reason(cls, v: object) -> Optional[str]:
+    def normalise_reason(cls, v: object) -> str | None:
         if not v:
             return None
         s = str(v).strip()
@@ -98,7 +96,7 @@ class KeywordValidationOutput(_KeywordMetricsMixin):
         return str(v) if str(v) in {"validated", "archived"} else "archived"
 
     @model_validator(mode="after")
-    def derive_status_from_worth_targeting(self) -> "KeywordValidationOutput":
+    def derive_status_from_worth_targeting(self) -> KeywordValidationOutput:
         # If status wasn't explicitly set to a recognised value, derive it.
         if self.updated_status == "archived" and self.worth_targeting:
             self.updated_status = "validated"
@@ -139,6 +137,40 @@ class TrendSignalOutput(BaseModel):
             return 5.0
 
 
+# ── SEO agents (continued) ────────────────────────────────────────────────────
+
+class SiteAuditorOutput(BaseModel):
+    """One audit snapshot produced by site_auditor agent."""
+    org_id: str
+    site_url: str
+    total_keywords: int = 0
+    ranking_count: int = 0
+    quick_wins_count: int = 0
+    not_ranking_count: int = 0
+    avg_position: float | None = None
+    gsc_rows_fetched: int = 0
+    summary: dict = {}
+
+    @field_validator("total_keywords", "ranking_count", "quick_wins_count",
+                     "not_ranking_count", "gsc_rows_fetched", mode="before")
+    @classmethod
+    def _coerce_int(cls, v: object) -> int:
+        try:
+            return max(0, int(v))  # type: ignore[arg-type]
+        except (ValueError, TypeError):
+            return 0
+
+    @field_validator("avg_position", mode="before")
+    @classmethod
+    def _coerce_position(cls, v: object) -> float | None:
+        if v is None:
+            return None
+        try:
+            return round(float(str(v)), 1)
+        except (ValueError, TypeError):
+            return None
+
+
 # ── SEO stubs (fill when building each agent) ─────────────────────────────────
 
 class GapAnalysisOutput(BaseModel):
@@ -146,7 +178,7 @@ class GapAnalysisOutput(BaseModel):
     keyword: str
     keyword_id: str
     competitive_gap_score: float
-    our_position: Optional[float] = None
+    our_position: float | None = None
     competitor_pages_found: int = 0
 
     @field_validator("competitive_gap_score", mode="before")
@@ -161,7 +193,7 @@ class GapAnalysisOutput(BaseModel):
     @classmethod
     def _coerce_pages(cls, v: object) -> int:
         try:
-            return max(0, int(v))
+            return max(0, int(v))  # type: ignore[arg-type]
         except (ValueError, TypeError):
             return 0
 
@@ -170,13 +202,13 @@ class RankTrackingOutput(BaseModel):
     """One row produced by rank_tracker agent."""
     keyword: str
     keyword_id: str
-    position: Optional[float] = None
-    previous_position: Optional[float] = None
+    position: float | None = None
+    previous_position: float | None = None
     status: str = "not_ranking"  # "quick_win" | "ranking" | "not_ranking"
 
     @field_validator("position", "previous_position", mode="before")
     @classmethod
-    def _coerce_position(cls, v: object) -> Optional[float]:
+    def _coerce_position(cls, v: object) -> float | None:
         if v is None:
             return None
         try:
@@ -243,7 +275,7 @@ class ContentExtractorOutput(BaseModel):
     @classmethod
     def _coerce_word_count(cls, v: object) -> int:
         try:
-            return max(0, int(v))
+            return max(0, int(v))  # type: ignore[arg-type]
         except (ValueError, TypeError):
             return 0
 
@@ -251,6 +283,29 @@ class ContentExtractorOutput(BaseModel):
     @classmethod
     def _validate_status(cls, v: object) -> str:
         return str(v) if str(v) in {"ok", "failed", "skipped"} else "failed"
+
+
+class KeywordOverlapOutput(BaseModel):
+    """One competitor_content row updated by keyword_overlap_analyzer."""
+    competitor_content_id: str
+    url: str
+    matched_keywords: list[str] = []
+    overlap_count: int = 0
+
+    @field_validator("matched_keywords", mode="before")
+    @classmethod
+    def _coerce_list(cls, v: object) -> list[str]:
+        if isinstance(v, list):
+            return [str(x) for x in v]
+        return []
+
+    @field_validator("overlap_count", mode="before")
+    @classmethod
+    def _coerce_count(cls, v: object) -> int:
+        try:
+            return max(0, int(v))  # type: ignore[arg-type]
+        except (ValueError, TypeError):
+            return 0
 
 
 # ── Knowledge stubs ───────────────────────────────────────────────────────────

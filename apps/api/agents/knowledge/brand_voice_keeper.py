@@ -97,9 +97,11 @@ async def _upsert_brand_voice(
     """UPSERT brand_voice row. Returns True if a write was performed."""
     result = await db.execute(
         text(
-            "INSERT INTO brand_voice (id, org_id, tone, vocabulary, banned_phrases, style_rules, updated_at) "
+            "INSERT INTO brand_voice "
+            "(id, org_id, tone, vocabulary, banned_phrases, style_rules, updated_at) "
             "VALUES (gen_random_uuid(), :org_id, :tone, "
-            "CAST(:vocabulary AS jsonb), CAST(:banned_phrases AS jsonb), CAST(:style_rules AS jsonb), now()) "
+            "CAST(:vocabulary AS jsonb), CAST(:banned_phrases AS jsonb), "
+            "CAST(:style_rules AS jsonb), now()) "
             "ON CONFLICT (org_id) DO UPDATE SET "
             "  tone = EXCLUDED.tone, "
             "  vocabulary = EXCLUDED.vocabulary, "

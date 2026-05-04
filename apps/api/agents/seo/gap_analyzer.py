@@ -130,7 +130,7 @@ async def _fetch_opportunities(org_id: str, db: AsyncSession) -> list[Any]:
         """),
         {"org_id": org_id},
     )
-    return result.fetchall()
+    return list(result.fetchall())
 
 
 async def _count_competitor_mentions(keyword: str, org_id: str, db: AsyncSession) -> int:

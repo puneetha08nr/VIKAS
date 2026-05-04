@@ -2,14 +2,15 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum as SAEnum, Float, ForeignKey, Index, Text, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, Text, func
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db.models import Base
 
 
-class PreferenceSource(str, enum.Enum):
+class PreferenceSource(enum.StrEnum):
     approve = "approve"
     edit = "edit"
     reject = "reject"

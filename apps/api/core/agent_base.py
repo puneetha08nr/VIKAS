@@ -1,8 +1,7 @@
 import logging
 import time
-import uuid
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, SkipValidation
@@ -120,7 +119,7 @@ class BaseAgent(ABC):
                 "duration_ms": result.duration_ms,
                 "cost_usd": result.cost_usd,
                 "error": result.error,
-                "completed_at": datetime.now(timezone.utc),
+                "completed_at": datetime.now(UTC),
             },
         )
         await ctx.db.commit()

@@ -2,14 +2,15 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum as SAEnum, Float, ForeignKey, Index, String, Text, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, func
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db.models import Base
 
 
-class ContentFormat(str, enum.Enum):
+class ContentFormat(enum.StrEnum):
     article = "article"
     linkedin = "linkedin"
     twitter = "twitter"
@@ -18,7 +19,7 @@ class ContentFormat(str, enum.Enum):
     lead_magnet = "lead_magnet"
 
 
-class ContentStatus(str, enum.Enum):
+class ContentStatus(enum.StrEnum):
     draft = "draft"
     review = "review"
     approved = "approved"

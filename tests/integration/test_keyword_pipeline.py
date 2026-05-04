@@ -1,11 +1,12 @@
 """Integration tests for the keyword research pipeline.
 
-test_keyword_research_end_to_end  — happy path: agent writes keywords, logs cost
+test_keyword_research_end_to_end  — happy path: agent writes keywords, logs audit row
 test_rls_isolation                — cross-org data must NEVER be visible (security gate)
 """
 import json
 import uuid
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlalchemy import text
@@ -16,6 +17,8 @@ _GOLDEN = json.loads(
     (Path(__file__).parents[2] / "tests" / "golden_traces" / "keyword_research_trace.json")
     .read_text()
 )
+# keyword_research now uses DataForSEO (no LLM). Parse the golden keywords list.
+_MOCK_KEYWORDS: list[dict] = json.loads(_GOLDEN["mock_llm_response"])
 
 
 # ── Test 1: Happy path ────────────────────────────────────────────────────────
@@ -39,26 +42,23 @@ async def test_keyword_research_end_to_end(test_org, db_engine):
         settings,
     )
 
-    # Patch complete() to return the golden trace response and set cost attrs.
-    async def _mock_complete(*_args, **_kwargs) -> str:
-        router.last_tokens_used = 250
-        router.last_cost_usd = 0.002
-        return _GOLDEN["mock_llm_response"]
-
-    router.complete = _mock_complete  # type: ignore[method-assign]
-
     agent = get_agent("keyword_research")
 
-    async with org_session_for_test(db_engine, org_id) as db:
-        ctx = AgentContext(
-            org_id=org_id,
-            run_id=run_id,
-            params={"seed_keyword": "ai marketing"},
-            config={},
-            db=db,
-            llm=router,
-        )
-        result = await agent.run(ctx)
+    # Agent uses DataForSEO (no LLM). Patch at the module level to return golden keywords.
+    with patch(
+        "agents.seo.keyword_research.DataForSEOIntegration",
+        **{"return_value.get_keyword_ideas": AsyncMock(return_value=_MOCK_KEYWORDS)},
+    ):
+        async with org_session_for_test(db_engine, org_id) as db:
+            ctx = AgentContext(
+                org_id=org_id,
+                run_id=run_id,
+                params={"seed_keyword": "ai marketing"},
+                config={},
+                db=db,
+                llm=router,
+            )
+            result = await agent.run(ctx)
 
     assert result.status == "success", f"Agent failed: {result.error}"
     assert result.data["keywords_found"] == 5
@@ -76,7 +76,8 @@ async def test_keyword_research_end_to_end(test_org, db_engine):
         ).fetchone()
         assert run_row is not None, "agent_runs row not written"
         assert run_row[0] == "success", f"agent_run.status = {run_row[0]!r}"
-        assert run_row[1] > 0, f"agent_run.cost_usd should be > 0, got {run_row[1]}"
+        # DataForSEO is a data API (no LLM tokens), so cost is 0
+        assert run_row[1] >= 0, f"agent_run.cost_usd should be >= 0, got {run_row[1]}"
 
     # A different org must see zero rows (basic RLS check — full isolation in test 2)
     other_org_id = str(uuid.uuid4())

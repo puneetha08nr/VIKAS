@@ -14,14 +14,14 @@ so it is subject to all RLS policies just like a real end-user session.
 Production: configure DATABASE_URL to use vikas_app credentials.
 Tests:      use SET ROLE vikas_app inside each org-scoped test session.
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 from alembic import op
 
 revision: str = "d5e6f7a8b9c0"
-down_revision: Union[str, None] = "c3d4e5f6a7b8"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "c3d4e5f6a7b8"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

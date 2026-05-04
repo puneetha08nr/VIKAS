@@ -17,7 +17,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from integrations.base import BaseIntegration, IntegrationError
 
-
 # ── Module-level helpers ──────────────────────────────────────────────────────
 
 async def _get_google_suggestions(seed: str) -> list[str]:

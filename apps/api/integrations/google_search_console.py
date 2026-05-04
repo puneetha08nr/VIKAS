@@ -53,8 +53,9 @@ class GoogleSearchConsoleIntegration(BaseIntegration):
         }
 
     def _get_credentials(self, org_settings: dict | None = None):
-        from google.oauth2.credentials import Credentials
         from google.auth.transport.requests import Request
+        from google.oauth2.credentials import Credentials
+
         from config.settings import settings
 
         if org_settings:
@@ -121,7 +122,7 @@ class GoogleSearchConsoleIntegration(BaseIntegration):
         org_id: str | None = None,
         db: Any | None = None,
     ) -> list[dict]:
-        """Return search analytics rows normalised to {query, clicks, impressions, ctr, position}."""
+        """Return search analytics rows normalised to {query, clicks, impressions, ctr, position}."""  # noqa: E501
         if dimensions is None:
             dimensions = ["query"]
 
@@ -166,7 +167,6 @@ class GoogleSearchConsoleIntegration(BaseIntegration):
             org_settings = await self._get_org_settings(org_id, db)
 
         service = self._build_service(org_settings)
-        from urllib.parse import quote
         result = service.sitemaps().list(siteUrl=site_url).execute()
         return [sm["path"] for sm in result.get("sitemap", [])]
 

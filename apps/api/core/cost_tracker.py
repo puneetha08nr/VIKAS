@@ -44,7 +44,7 @@ class CostTracker:
             ),
             {"org_id": org_id},
         )
-        return float(result.scalar())
+        return float(result.scalar() or 0.0)
 
     async def check_limit(
         self, org_id: str, daily_limit_usd: float, db: AsyncSession

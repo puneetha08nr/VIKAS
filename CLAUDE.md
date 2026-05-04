@@ -538,6 +538,8 @@ If any of these fail, stop. Fix before proceeding.
 | trend_collector | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ✅ | ✅ |
 | competitor_monitor | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ✅ | ✅ |
 | content_extractor | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ✅ | ✅ |
+| keyword_overlap_analyzer | ✅ | n/a | n/a | ✅ | ✅ | ✅ | ✅ | ⬜ |
+| site_auditor | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ✅ | ⬜ |
 | gap_analyzer | ✅ | n/a | n/a | ✅ | ✅ | ✅ | ✅ | ✅ |
 | rank_tracker | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ✅ | ✅ |
 | document_ingester | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |

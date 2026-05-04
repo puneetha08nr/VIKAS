@@ -2,14 +2,15 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Index, String, func
+from sqlalchemy import DateTime, ForeignKey, Index, String, func
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db.models import Base
 
 
-class PipelineRunStatus(str, enum.Enum):
+class PipelineRunStatus(enum.StrEnum):
     running = "running"
     success = "success"
     failed = "failed"

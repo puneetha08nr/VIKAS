@@ -1,16 +1,15 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
 from pydantic import BaseModel
-from sqlalchemy import String, cast, func, select, text
+from sqlalchemy import String, cast, select, text
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import agents.seo.keyword_research  # noqa: F401 — ensure @register has run
 import agents.seo.keyword_validator  # noqa: F401 — ensure @register has run
-
 from api.deps import get_current_org, get_db_for_org
 from core.task_queue import AgentCommand, dispatch
 from db.models.agent_runs import AgentRun, AgentRunStatus
@@ -217,7 +216,7 @@ async def _dispatch_or_fail(
             .values(
                 status=AgentRunStatus.failed,
                 error=f"Dispatch failed: {exc}",
-                completed_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(UTC),
             )
         )
         await db.commit()

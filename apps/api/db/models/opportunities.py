@@ -2,14 +2,15 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum as SAEnum, Float, ForeignKey, Index, String, func, text
+from sqlalchemy import DateTime, Float, ForeignKey, Index, String, func, text
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db.models import Base
 
 
-class OpportunityStatus(str, enum.Enum):
+class OpportunityStatus(enum.StrEnum):
     new = "new"
     in_progress = "in_progress"
     done = "done"

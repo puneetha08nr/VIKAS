@@ -1,5 +1,3 @@
-import asyncio
-from typing import Any
 
 from openai import AsyncOpenAI
 
@@ -27,7 +25,9 @@ class EmbeddingGenerator:
                 dimensions=_DIMS,
             )
             # API returns items sorted by index
-            batch_embeddings = [item.embedding for item in sorted(response.data, key=lambda x: x.index)]
+            batch_embeddings = [  # noqa: E501
+                item.embedding for item in sorted(response.data, key=lambda x: x.index)
+            ]
             all_embeddings.extend(batch_embeddings)
 
         return all_embeddings

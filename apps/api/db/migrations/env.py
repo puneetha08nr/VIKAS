@@ -1,16 +1,16 @@
 import asyncio
+import os
 from logging.config import fileConfig
 
+from dotenv import load_dotenv
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-import os
-from dotenv import load_dotenv
-load_dotenv()
-from alembic import context
 
-from config.settings import settings
-from db.models import Base
+load_dotenv()
+from alembic import context  # noqa: E402, I001
+from config.settings import settings  # noqa: E402
+from db.models import Base  # noqa: E402
 
 config = context.config
 

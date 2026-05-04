@@ -16,14 +16,14 @@ Each org-scoped table gets:
 The session variable app.current_org_id is set by db.session.org_session() before
 every query. Callers without the variable set see zero rows.
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 from alembic import op
 
 revision: str = "c3d4e5f6a7b8"
-down_revision: Union[str, None] = "b2c3d4e5f6a7"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "b2c3d4e5f6a7"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 # Tables with an org_id column that must be tenant-isolated.
 # organizations and prompts are intentionally excluded:

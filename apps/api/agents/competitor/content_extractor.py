@@ -112,7 +112,7 @@ async def _fetch_unextracted(
         ),
         {"org_id": org_id, "limit": limit, **id_params},
     )
-    return result.fetchall()
+    return list(result.fetchall())
 
 
 async def _update_content(

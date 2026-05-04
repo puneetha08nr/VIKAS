@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     )
 
     # ── Database ──────────────────────────────────────────────────────────────
-    database_url: str        # vikas_app — restricted user, RLS enforced (app runtime)
+    database_url: str = ""   # required in production via DATABASE_URL env var
     admin_database_url: str = ""  # vikas_admin — DDL privileges (Alembic only; optional at runtime)
     redis_url: str = "redis://localhost:6379/0"
 
@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     dev_auth_bypass: bool = False
 
     # ── Encryption ────────────────────────────────────────────────────────────
-    # Generate with: python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # Generate with: python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"  # noqa: E501
     settings_encryption_key: str = ""
 
     # ── Storage ───────────────────────────────────────────────────────────────

@@ -1,15 +1,15 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import select, update as sa_update
+from sqlalchemy import select
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import agent modules to ensure @register decorators have run before any
 # call to agent_registry.list_agents() — add new agents here as they are built.
 import agents.seo.keyword_research  # noqa: F401
-
 from api.deps import get_current_org, get_db_for_org
 from core import agent_registry
 from core.task_queue import AgentCommand, dispatch
@@ -61,7 +61,7 @@ async def run_agent(
             .values(
                 status=AgentRunStatus.failed,
                 error=f"Dispatch failed: {exc}",
-                completed_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(UTC),
             )
         )
         await db.commit()

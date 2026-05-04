@@ -14,7 +14,8 @@ class EvalLog(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     org_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     agent_name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    eval_type: Mapped[str] = mapped_column(String(20), nullable=False)  # structural|relevance|ground_truth
+    # structural | relevance | ground_truth
+    eval_type: Mapped[str] = mapped_column(String(20), nullable=False)
     score: Mapped[float | None] = mapped_column(Float, nullable=True)
     threshold: Mapped[float | None] = mapped_column(Float, nullable=True)
     passed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)

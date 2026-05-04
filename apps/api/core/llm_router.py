@@ -124,9 +124,9 @@ class LLMRouter:
                 **call_kwargs,
                 **kwargs,
             )
-            content: str = response.choices[0].message.content or ""
-            tokens_in: int = response.usage.prompt_tokens
-            tokens_out: int = response.usage.completion_tokens
+            content: str = response.choices[0].message.content or ""  # type: ignore[union-attr]
+            tokens_in: int = response.usage.prompt_tokens  # type: ignore[union-attr]
+            tokens_out: int = response.usage.completion_tokens  # type: ignore[union-attr]
             cost = 0.0 if self._cfg["cost_free"] else self.get_cost(model, tokens_in, tokens_out)
 
             await self._cost_tracker.add(

@@ -2,14 +2,15 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum as SAEnum, Float, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db.models import Base
 
 
-class KeywordStatus(str, enum.Enum):
+class KeywordStatus(enum.StrEnum):
     raw = "raw"
     validated = "validated"
     clustered = "clustered"
@@ -49,7 +50,9 @@ class Keyword(Base):
     intent: Mapped[str | None] = mapped_column(String(50), nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_run_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
-    data_source: Mapped[str] = mapped_column(String(30), nullable=False, server_default="llm_estimate")
+    data_source: Mapped[str] = mapped_column(
+        String(30), nullable=False, server_default="llm_estimate"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

@@ -128,7 +128,7 @@ async def _fetch_validated_keywords(org_id: str, db: AsyncSession) -> list[Any]:
         ),
         {"org_id": org_id},
     )
-    return result.fetchall()
+    return list(result.fetchall())
 
 
 async def _fetch_latest_positions(
@@ -161,7 +161,8 @@ async def _insert_rank_snapshot(
     await db.execute(
         text(
             "INSERT INTO rank_tracking "
-            "(id, org_id, keyword_id, keyword, position, previous_position, status, source, checked_at, created_at) "
+            "(id, org_id, keyword_id, keyword, position, previous_position, "
+            "status, source, checked_at, created_at) "
             "VALUES "
             "(gen_random_uuid(), :org_id, :keyword_id, :keyword, "
             ":position, :previous_position, :status, 'gsc', now(), now())"

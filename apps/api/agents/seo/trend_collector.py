@@ -30,7 +30,11 @@ class TrendCollectorAgent(BaseAgent):
         if not keywords:
             return AgentResult(
                 status="success",
-                data={"signals_written": 0, "keywords_checked": 0, "message": "No keywords to check"},
+                data={
+                    "signals_written": 0,
+                    "keywords_checked": 0,
+                    "message": "No keywords to check",
+                },
             )
 
         loop = asyncio.get_running_loop()
@@ -81,7 +85,7 @@ def _fetch_trends_sync(
             signals.append({"query": kw, "momentum": 5.0})
             continue
 
-        values = [float(v) for v in df[kw].dropna().tolist() if v is not None]
+        values = [float(v) for v in df[kw].dropna().tolist() if v is not None]  # type: ignore[union-attr]
         signals.append({"query": kw, "momentum": _compute_momentum(values)})
 
     return signals

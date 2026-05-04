@@ -15,6 +15,14 @@ target-version = "py312"
 select = ["E", "F", "I", "N", "UP", "ANN", "ASYNC"]
 ignore = ["ANN101", "ANN102"]
 
+[tool.ruff.lint.per-file-ignores]
+# Migration files are Alembic-generated; relax style rules
+"apps/api/db/migrations/**" = ["E501", "E402", "UP007", "UP035", "ANN"]
+# RAG / embeddings files: suppress line-length and annotation noise
+"apps/api/rag/**" = ["E501", "ANN"]
+# Integration files: suppress annotation noise on complex async adapters
+"apps/api/integrations/**" = ["ANN", "E501"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"

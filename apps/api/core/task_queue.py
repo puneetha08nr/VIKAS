@@ -1,12 +1,12 @@
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
 
 from config.settings import settings
-from workers.celery_app import celery_app
 from core.agent_registry import import_all_agents
+from workers.celery_app import celery_app
 
 import_all_agents()
 
@@ -16,7 +16,7 @@ class AgentCommand(BaseModel):
     org_id: str
     run_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     params: dict = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 def dispatch(command: AgentCommand) -> str:

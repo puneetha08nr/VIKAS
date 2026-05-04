@@ -7,15 +7,14 @@ Scoring:        Pure Python composite formula
 """
 import logging
 import uuid
-from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.agent_base import AgentContext, AgentResult, BaseAgent
 from core.agent_registry import register
-from integrations.dataforseo import DataForSEOIntegration
 from integrations.base import IntegrationError
+from integrations.dataforseo import DataForSEOIntegration
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +202,7 @@ async def _save_keywords(
                 "priority_score": priority,
             },
         )
-        if result.rowcount:
+        if result.fetchone() is not None:
             saved += 1
 
     await db.flush()

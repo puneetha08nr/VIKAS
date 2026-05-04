@@ -51,7 +51,7 @@ class PromptRegistry:
             ),
             {"agent_name": agent_name},
         )
-        next_version: int = int(result.scalar()) + 1
+        next_version: int = int(result.scalar() or 0) + 1
 
         # Insert new active prompt
         await db.execute(
