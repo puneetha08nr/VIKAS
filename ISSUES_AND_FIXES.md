@@ -298,6 +298,45 @@ Same fix for `children`: `root.findall(f"{{{ns}}}{child_tag}")` returns a list (
 
 ---
 
+### Issue 23 — Lazy import inside try-block breaks `patch()` in unit tests
+**Symptom:** `patch("agents.knowledge.rag_searcher.EmbeddingGenerator", ...)` raised `AttributeError: module 'agents.knowledge.rag_searcher' has no attribute 'EmbeddingGenerator'`, even though the import worked fine at runtime.
+
+**Root cause:** `EmbeddingGenerator` was imported inside a `try` block at the start of `execute()`:
+```python
+try:
+    from rag.embeddings import EmbeddingGenerator
+    embedding = await EmbeddingGenerator().generate_one(query)
+```
+`patch()` replaces the attribute on the *module object* (`agents.knowledge.rag_searcher.EmbeddingGenerator`). A lazy/local import never sets that attribute, so the patch target doesn't exist at test time.
+
+**Fix:** Move the import to module level (top of file):
+```python
+from rag.embeddings import EmbeddingGenerator  # must be module-level for patch() to work
+```
+
+**Rule:** Any symbol you intend to `patch()` in tests must be imported at module level. Lazy imports inside functions or `try` blocks are invisible to `patch()`. This applies to all agents using `EmbeddingGenerator`, `TrendReq`, or any optional dependency.
+
+---
+
+### Issue 24 — asyncpg named-param parser breaks on `::vector` / `::jsonb` type casts
+**Symptom:** SQL containing `CAST(:param AS vector)` worked; `embedding <=> :query_vec::vector` raised a parse error or silently failed with asyncpg.
+
+**Root cause:** asyncpg uses `:param` syntax for named parameters. When a query contains `::vector`, asyncpg's parser sees the `::` prefix and interprets it as part of a parameter name, breaking the entire query parse.
+
+**Fix:** Always use `CAST(:param AS vector)` instead of `:param::vector`. Same for `::jsonb` → `CAST(:param AS jsonb)`.
+
+```python
+# WRONG (breaks asyncpg):
+"1 - (embedding <=> :query_vec::vector)"
+
+# CORRECT:
+"1 - (embedding <=> CAST(:query_vec AS vector))"
+```
+
+**Rule:** Never use PostgreSQL's `::type` cast syntax in any SQL that passes through asyncpg with named parameters. Always use `CAST(... AS type)`.
+
+---
+
 ### Issue 20 — GSC 403 means "API not enabled in GCP", not "permission denied on property"
 **Symptom:** After fixing the base URL and loading real credentials, `list_sites()` still returned `403 Forbidden`.
 
@@ -306,5 +345,87 @@ Same fix for `children`: `root.findall(f"{{{ns}}}{child_tag}")` returns a list (
 **Fix:** Enable the API at: `https://console.developers.google.com/apis/api/searchconsole.googleapis.com/overview?project=<project-number>`
 
 **Diagnosis tip:** A 403 from a Google API almost always means one of: (a) API not enabled, (b) service account not authorized on the resource, or (c) quota exceeded. Always print `response.text` — the JSON body distinguishes these cases immediately. Never treat a 403 as just "permissions" without reading the error body.
+
+---
+
+## EmailIntegration / video_handoff
+
+### Issue 25 — smtplib blocks the asyncio event loop if called directly in async code
+**Symptom:** Calling `smtplib.SMTP(...)` inside `async def` stalls all other coroutines during the TCP handshake + TLS negotiation + AUTH sequence (~300–600 ms per send).
+
+**Root cause:** `smtplib` is synchronous (uses stdlib `socket`). Calling it from `async def` blocks the thread the event loop runs on.
+
+**Fix:** Wrap in `run_in_executor`. Keep the actual SMTP work in a plain sync method `_send_sync`; call it as `await loop.run_in_executor(None, self._send_sync, to, subject, body_html)`.
+
+**Rule:** Any stdlib or third-party library using synchronous I/O (smtplib, requests, pytrends) must be wrapped in `run_in_executor`. Same pattern as pytrends in trend_collector (Issue 21).
+
+---
+
+### Issue 26 — patch() on keyword-arg calls: call_args[0] is empty tuple
+**Symptom:** `mock_send.call_args[0][1]` raised `IndexError: tuple index out of range` even though `mock_send` was clearly called.
+
+**Root cause:** Agent called `email.send_email(to=..., subject=..., body_html=...)` using all keyword arguments. `call_args[0]` holds positional args — empty here. Values are in `call_args.kwargs`.
+
+**Fix:** Use `mock.call_args.kwargs["subject"]` / `mock.call_args.kwargs["body_html"]` when production code uses keyword arguments.
+
+**Rule:** Before writing test assertions against `call_args`, check whether the call site uses positional or keyword args. Use `call_args[0]` for positional, `call_args.kwargs` for keyword.
+
+---
+
+### Issue 27 — asyncpg cannot cast named params to ::vector type
+**Symptom:** `asyncpg.exceptions.DataError: invalid input for query argument $1: expected str, got list` when trying to pass an embedding list as a named param and cast with `CAST(:embedding AS vector)`.
+
+**Root cause:** asyncpg cannot bind Python list/tuple values to PostgreSQL custom types like `vector`. Named parameter binding only works for scalar types.
+
+**Fix:** Build the vector literal inline in the SQL string using Python f-string: `f"'[{','.join(str(x) for x in embedding)}]'::vector"`. This embeds the vector value directly as a SQL literal rather than a bound parameter. For NULL embeddings (on failure), use standard `NULL` literal.
+
+**Rule:** Never try to bind embeddings (or other custom PostgreSQL types) as named params. Interpolate them directly into the SQL string after validating the data shape.
+
+---
+
+### Issue 28 — `params or {...}` treats empty dict {} as falsy in test helpers
+**Symptom:** `test_missing_opportunity_id_fails` passed the agent empty params `{}` but the agent succeeded because the test helper `ctx.params = params or {"opportunity_id": OPP_ID}` replaced `{}` with defaults.
+
+**Root cause:** Empty dict `{}` is falsy in Python. `params or {...}` substitutes the default when `params={}` is intentional.
+
+**Fix:** Change `params or {"opportunity_id": OPP_ID}` to `{"opportunity_id": OPP_ID} if params is None else params`. This only substitutes defaults when `params` is explicitly `None`, not when it's an empty dict.
+
+**Rule:** In test `_ctx()` helpers, always use `if params is None else params` rather than `or {}` to avoid the falsy-empty-dict trap.
+
+---
+
+### Issue 29 — contracts.py forward-reference alias broke import
+**Symptom:** `NameError: name 'ArticlePlannerOutput' is not defined` at import time when code at the top of contracts.py had `ArticlePlanOutput = ArticlePlannerOutput` before the class was defined at the bottom of the file.
+
+**Root cause:** Module-level assignment runs top-to-bottom at import time. The alias was created before the class definition was reached.
+
+**Fix:** Removed the premature alias and replaced it with a comment `# ArticlePlannerOutput defined later in this file`. Any code that needed the alias was updated to import the real class directly.
+
+**Rule:** Never create module-level aliases for classes that are defined later in the same file. Either define the class first, or use `TYPE_CHECKING` blocks.
+
+---
+
+### Issue 31 — TypeScript: `Promise<T>` not assignable to `Promise<void>` in mutation callback props
+
+**Symptom:** `src/app/(dashboard)/competitors/page.tsx(157,51): error TS2322: Type 'Promise<Competitor>' is not assignable to type 'Promise<void>'. Type 'Competitor' is not assignable to type 'void'`.
+
+**Root cause:** `AddCompetitorForm` declared its `onAdd` prop as `(domain: string) => Promise<void>`. The call site passed `(domain) => addMutation.mutateAsync(domain)`, which returns `Promise<Competitor>`. TypeScript requires an exact return type match on the prop.
+
+**Fix:** Chain `.then(() => {})` at the call site to discard the resolved value: `(domain) => addMutation.mutateAsync(domain).then(() => {})`. This converts `Promise<Competitor>` to `Promise<void>` without changing the prop type.
+
+**Alternative:** Widen the prop type to `(domain: string) => Promise<unknown>` or `Promise<void | Competitor>`, but the `.then()` approach is less invasive.
+
+**Rule:** When a component prop declares `() => Promise<void>` and the caller passes a TanStack mutation's `mutateAsync`, always chain `.then(() => {})` to drop the typed return value.
+
+---
+
+### Issue 30 — video_scripts scenes column needed ::jsonb CAST for asyncpg
+**Symptom:** `asyncpg.exceptions.DataError: invalid input for query argument` when inserting JSON string for the `scenes` JSONB column.
+
+**Root cause:** asyncpg doesn't auto-cast Python strings to JSONB. The `CAST(:scenes AS jsonb)` pattern is required for all JSONB columns when using named parameters.
+
+**Fix:** Use `CAST(:scenes AS jsonb)` in the INSERT statement for all JSONB columns (scenes, tweets, recommendations). This pattern was already established for `twitter_threads` and applied consistently to `video_scripts` and `strategy_reports`.
+
+**Rule:** Every JSONB column in an INSERT/UPDATE statement must use `CAST(:param AS jsonb)` when binding via named parameters in asyncpg.
 
 ---

@@ -530,6 +530,35 @@ If any of these fail, stop. Fix before proceeding.
 
 ## Agents Build Status
 
+34 agents registered as of 2026-05-05. Remaining not-built: image_creator, video_producer, thumbnail_generator (video production pipeline).
+
+---
+
+## Frontend Pages Build Status
+
+All 8 dashboard pages built as of 2026-05-05. Every page connects to real API endpoints — no mock data in components.
+
+| Page | Route | Status | API endpoints used |
+|---|---|---|---|
+| Dashboard | `/dashboard` | ✅ | `/api/v1/keywords/stats`, `/api/v1/agents/runs`, `/api/v1/opportunities`, `/api/v1/articles`, `/api/v1/agents/{name}/run` |
+| Keywords | `/keywords` | ✅ | `/api/v1/keywords`, `/api/v1/keywords/stats`, `/api/v1/keywords/research`, `/api/v1/keywords/validate` |
+| Opportunities | `/opportunities` | ✅ | `/api/v1/opportunities`, `/api/v1/agents/content_director/run` |
+| Content | `/content` | ✅ | `/api/v1/articles`, `PUT /api/v1/articles/{id}` |
+| Competitors | `/competitors` | ✅ | `/api/v1/competitors`, `/api/v1/competitor-content` |
+| Video Queue | `/video-queue` | ✅ | `/api/v1/video-jobs` (via dashboard router) |
+| Strategy | `/strategy` | ✅ | `/api/v1/strategy-reports`, `/api/v1/agents/strategy_synthesizer/run` |
+| Settings | `/settings` | ✅ | `/api/v1/brand-voice`, `/api/v1/settings/auto-mode` |
+
+**Shared frontend files:**
+- `apps/web/src/lib/types.ts` — all domain types (Opportunity, Article, Competitor, VideoJob, StrategyReport, BrandVoice, AutoModeSettings, etc.)
+- `apps/web/src/lib/api.ts` — namespaced `api.*` client (keywords, runs, agents, opportunities, articles, competitors, strategy, brandVoice, autoMode, videoJobs)
+- `apps/web/src/components/ui/badge.tsx` — Badge + `statusBadgeVariant()` helper
+
+**Backend additions (supporting the dashboard):**
+- `apps/api/api/v1/dashboard.py` — all 12 missing endpoint groups (opportunities, articles, social content, competitors, competitor-content, strategy-reports, rank-tracking, aeo-results, brand-voice, settings/auto-mode, video-jobs)
+- `apps/api/api/v1/agents.py` — `GET /agents/runs` now accepts `?limit=` query param
+- `apps/api/api/v1/router.py` — `dashboard.router` included
+
 | Agent | Contract | Migration | Prompt | Unit Test | CLI Verified | DB Verified | RLS Verified | Golden Trace |
 |---|---|---|---|---|---|---|---|---|
 | keyword_research | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -542,14 +571,30 @@ If any of these fail, stop. Fix before proceeding.
 | site_auditor | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ✅ | ⬜ |
 | gap_analyzer | ✅ | n/a | n/a | ✅ | ✅ | ✅ | ✅ | ✅ |
 | rank_tracker | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ✅ | ✅ |
-| document_ingester | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| aeo_scanner | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ✅ | ⬜ |
+| threat_assessor | ✅ | n/a | n/a | ✅ | ✅ | ✅ | ✅ | ⬜ |
+| preference_learner | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ✅ | ⬜ |
+| document_ingester | ✅ | ✅ | n/a | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
 | brand_voice_keeper | ✅ | n/a | n/a | ✅ | ✅ | ✅ | ✅ | ⬜ |
-| rag_searcher | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| article_planner | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| article_writer | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| content_director | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| linkedin_agent | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| wordpress_publisher | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| rag_searcher | ✅ | n/a | n/a | ✅ | ✅ | ✅ | ✅ | ⬜ |
+| internal_link_finder | ✅ | n/a | n/a | ✅ | ✅ | ✅ | ✅ | ⬜ |
+| topic_discovery | ✅ | ✅ | n/a | ✅ | ✅ | ✅ | ✅ | ⬜ |
+| article_planner | ✅ | ✅ | ✅ | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| article_writer | ✅ | ✅ | ✅ | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| content_director | ✅ | n/a | n/a | ✅ | ⬜ | ⬜ | n/a | ⬜ |
+| linkedin_agent | ✅ | ✅ | ✅ | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| twitter_agent | ✅ | ✅ | ✅ | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| newsletter_agent | ✅ | ✅ | ✅ | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| video_scriptwriter | ✅ | ✅ | ✅ | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| lead_magnet_agent | ✅ | ✅ | ✅ | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| competitor_discovery | ✅ | n/a | ✅ | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| strategy_synthesizer | ✅ | ✅ | ✅ | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| wordpress_publisher | ✅ | n/a | n/a | ✅ | ⬜ | ⬜ | n/a | ⬜ |
+| ai_assistant | ✅ | n/a | ✅ | ✅ | ⬜ | ⬜ | n/a | ⬜ |
+| pipeline_orchestrator | ✅ | n/a | n/a | ✅ | ⬜ | ⬜ | n/a | ⬜ |
+| auto_mode_engine | ✅ | n/a | n/a | ✅ | ⬜ | ⬜ | n/a | ⬜ |
+| video_handoff | ✅ | ✅ | n/a | ✅ | ⬜ | ⬜ | n/a | ⬜ |
+| broll_selector | ✅ | ✅ | n/a | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
 
 ---
 
