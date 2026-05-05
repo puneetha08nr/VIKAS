@@ -187,37 +187,83 @@ async def test_partial_failure_returns_partial_status(
     assert result.data["results"][1]["status"] == "unreachable"
 
 
-# ── Missing / empty params ────────────────────────────────────────────────────
+# ── Missing / empty params — fallback to DB ───────────────────────────────────
 
-async def test_empty_competitors_list_returns_failed(
-    mock_db: AsyncMock, mock_llm: MagicMock
+def _db_with_stored_domains(domains: list[str]) -> AsyncMock:
+    """DB mock where SELECT domain FROM competitors returns given list."""
+    domain_result = MagicMock()
+    domain_result.fetchall.return_value = [
+        MagicMock(**{"__getitem__": lambda self, i: d}) for d in domains
+    ]
+    write_result = MagicMock()
+    write_result.rowcount = 1
+
+    def _side(query, params=None):
+        if "SELECT domain FROM competitors" in str(query):
+            return domain_result
+        return write_result
+
+    db = AsyncMock()
+    db.execute = AsyncMock(side_effect=_side)
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+    return db
+
+
+async def test_no_param_db_empty_returns_success_zero(
+    mock_llm: MagicMock,
 ) -> None:
+    """No competitors param AND no stored domains → success with total=0 and a message."""
+    db = _db_with_stored_domains([])
     ctx = AgentContext(
         org_id="00000000-0000-0000-0000-000000000001",
         run_id="00000000-0000-0000-0000-000000000004",
-        params={"competitors": []},
+        params={},
         config={},
-        db=mock_db,
+        db=db,
         llm=mock_llm,
     )
     result = await CompetitorMonitorAgent().run(ctx)
-    assert result.status == "failed"
+    assert result.status == "success"
+    assert result.data["total"] == 0
+    assert "message" in result.data
 
 
-async def test_missing_competitors_param_returns_failed(
-    mock_db: AsyncMock, mock_llm: MagicMock
+async def test_no_param_db_has_domains_falls_back_to_db(
+    mock_llm: MagicMock,
 ) -> None:
+    """No competitors param but DB has stored domains → agent scrapes them."""
+    db = _db_with_stored_domains(["stored-competitor.com"])
     ctx = AgentContext(
         org_id="00000000-0000-0000-0000-000000000001",
         run_id="00000000-0000-0000-0000-000000000005",
         params={},
         config={},
-        db=mock_db,
+        db=db,
+        llm=mock_llm,
+    )
+    with _patch_sitemap(["https://stored-competitor.com/sitemap.xml"]):
+        result = await CompetitorMonitorAgent().run(ctx)
+    assert result.status == "success"
+    assert result.data["total"] == 1
+
+
+async def test_empty_list_param_falls_back_to_db(
+    mock_llm: MagicMock,
+) -> None:
+    """Explicit empty list for competitors → same fallback as missing param."""
+    db = _db_with_stored_domains([])
+    ctx = AgentContext(
+        org_id="00000000-0000-0000-0000-000000000001",
+        run_id="00000000-0000-0000-0000-000000000006",
+        params={"competitors": []},
+        config={},
+        db=db,
         llm=mock_llm,
     )
     result = await CompetitorMonitorAgent().run(ctx)
-    assert result.status == "failed"
-    assert result.error is not None
+    assert result.status == "success"
+    assert result.data["total"] == 0
 
 
 # ── _parse_sitemap_xml unit tests ─────────────────────────────────────────────

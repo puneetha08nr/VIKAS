@@ -70,81 +70,66 @@ Your outline must:
 2. Address the user's full search intent — not just the keyword
 3. Follow the inverted pyramid: most important information first
 4. Include a logical section flow that builds on each previous section
-5. Identify 3-5 internal linking opportunities (placeholder: [INTERNAL_LINK: topic])
-6. Suggest one primary CTA aligned to the commercial intent of the topic
+5. Suggest one primary CTA aligned to the commercial intent of the topic
 
-Outline format:
-- Title (H1): keyword-optimized, <65 characters, compelling
-- Meta description: 150-160 characters, includes keyword, has a hook
-- Introduction (2-3 sentences): hook + preview of what reader will learn
-- H2 sections (5-8): each with a brief description of what to cover (2-3 sentences)
-  - Under complex H2s, add H3 subsections as needed
-- Conclusion: summarize key takeaways + CTA
-- Suggested internal links: list of 3-5 topics from our own content
+Primary keyword: KEYWORD
+Brand voice: BRAND_VOICE
+Relevant knowledge context: KNOWLEDGE_CHUNKS
 
-Primary keyword: {primary_keyword}
-Secondary keywords: {secondary_keywords}
-Target word count: {word_count}
-Content goal: {content_goal}
-Audience expertise level: {audience_level}
-
-Return a structured JSON outline. Do not write the article — outline only.
+Return ONLY JSON with these exact fields, no markdown, no explanation:
+{
+  "title": "SEO-optimized H1 title under 65 chars",
+  "meta_description": "150-160 char meta desc with keyword and hook",
+  "word_count_target": 1800,
+  "content_angle": "unique angle that differentiates this article",
+  "cta": "one clear call to action",
+  "outline": [
+    {"h2": "Section Title", "detail": "2-3 sentences on what to cover"},
+    {"h2": "Another Section", "detail": "2-3 sentences on what to cover"}
+  ]
+}
 """,
 
     "article_writer": """\
-You are writing a high-quality, SEO-optimized article that ranks well and genuinely
-helps readers accomplish their goal.
+You are writing one section of an SEO-optimized article.
 
 Writing standards:
-1. Use the primary keyword in the first 100 words and naturally throughout — no stuffing
-2. Write in active voice; keep sentences under 25 words where possible
-3. Use transition words between paragraphs to improve readability score
-4. Every factual claim must be something you can substantiate — flag speculative statements
-5. Include practical examples, not just theory
-6. Format for scannability: short paragraphs (3-4 sentences max), use bullet lists for 4+ items
-7. Do not use filler phrases: "In today's world", "It goes without saying", "As we all know"
-8. End each major section with a concrete takeaway the reader can act on
+- Active voice; sentences under 25 words where possible
+- Practical examples, not just theory
+- Short paragraphs (3-4 sentences max)
+- Do NOT include the H2 heading — it will be added automatically
 
-SEO requirements:
-- Primary keyword appears in: title, first paragraph, at least one H2, conclusion
-- Secondary keywords woven in naturally (do not force them)
-- Internal links inserted exactly where indicated in the outline
-- Meta description included at the end as a separate field
+Section to write: SECTION_TITLE
+Article title: ARTICLE_TITLE
+Primary keyword: KEYWORD
+Brand voice: BRAND_VOICE
+Section outline: SECTION_OUTLINE
+Relevant knowledge: KNOWLEDGE_CHUNKS
+Internal link placeholders: INTERNAL_LINKS
+Target word count for this section: WORD_COUNT words
 
-Outline to follow: {outline}
-Primary keyword: {primary_keyword}
-Brand voice guidelines: {brand_voice}
-Target word count: {word_count}
-
-Return JSON with fields: title, meta_description, body (full HTML), word_count.
+Return ONLY the HTML body of this section (p tags, ul/ol, em, strong). No JSON wrapper.
 """,
 
     "linkedin_agent": """\
-You are writing a LinkedIn post that drives engagement and positions the author as
-a credible expert in their field.
+You are writing a LinkedIn post from an article. Drive engagement and show expertise.
 
-LinkedIn post formula:
-1. Hook (line 1): bold statement, surprising statistic, or provocative question — no fluff
-2. Setup (lines 2-4): expand on the hook, establish why this matters
-3. Value (lines 5-12): the actual insight, lesson, or story — be specific, not generic
-4. Takeaway (lines 13-15): one clear, actionable conclusion the reader can apply today
-5. Call to action (final line): question to drive comments OR soft CTA to relevant content
+Formula:
+1. Hook (line 1): bold statement or surprising statistic — no fluff
+2. Setup (2-3 lines): why this matters
+3. Value (5-8 lines): specific insight or lesson from the article
+4. Takeaway (1-2 lines): one actionable conclusion
+5. CTA (final line): question to drive comments
 
-Formatting rules:
-- Single-sentence paragraphs for the hook and takeaway
-- Max 2-sentence paragraphs elsewhere — white space is engagement
-- No hashtag stuffing: 2-3 relevant hashtags maximum, placed at the end
-- Emojis: optional, use sparingly (0-2 max) — only if they add clarity
-- No "I'm excited to share" or "Thrilled to announce" openers
+Rules: single-sentence paragraphs for hook/takeaway, max 2-sentence paragraphs elsewhere,
+2-3 hashtags at end, no "I'm excited to share" openers.
 
-Voice: professional but human. Write like a smart colleague talking, not a press release.
+Article title: ARTICLE_TITLE
+Article excerpt: ARTICLE_BODY
+Primary keyword: KEYWORD
 
-Source content: {source_content}
-Key insight to highlight: {key_insight}
-Target audience: {target_audience}
-Author's perspective/angle: {author_angle}
-
-Return JSON with fields: post_text, hashtags (list), estimated_reach_tier (low/medium/high).
+Return ONLY JSON with these fields, no markdown:
+{"content": "full post text", "hashtags": ["#tag1", "#tag2"]}
 """,
 
     "brand_voice_keeper": """\
@@ -171,6 +156,128 @@ Content to review: {content}
 Content type: {content_type}
 
 Return JSON: {{ "score": 0.0-1.0, "issues": [...], "overall_assessment": "one sentence" }}
+""",
+
+    "twitter_agent": """\
+You are writing a Twitter/X thread from an article. Maximum engagement, punchy and clear.
+
+Thread rules:
+- First tweet: bold hook that makes people stop scrolling (no "Thread:" prefix)
+- Each tweet: one idea, under 280 characters, standalone but part of a story
+- Last tweet: summary or CTA — "Follow for more" or link to article
+- 5-8 tweets total
+- No hashtag spam — max 1-2 at the end of the last tweet
+
+Article title: ARTICLE_TITLE
+Article excerpt: ARTICLE_BODY
+Primary keyword: KEYWORD
+
+Return ONLY a JSON array of tweet objects, no markdown, no explanation:
+[{"text": "tweet content here"}, {"text": "second tweet"}, ...]
+""",
+
+    "newsletter_agent": """\
+You are writing an email newsletter from an article. Goal: get readers to open, read, and click.
+
+Newsletter structure:
+- Subject: 40-60 chars, creates curiosity or promises value, no spam words (FREE, URGENT)
+- Preview text: 85-100 chars, complements subject line
+- Body HTML:
+  - Personal opening (1-2 sentences, "Hey [first name]" style)
+  - The main value: summarize the article's key insight in 3-5 short paragraphs
+  - One primary CTA button: "Read the full article →"
+  - Brief sign-off
+
+Article title: ARTICLE_TITLE
+Article excerpt: ARTICLE_BODY
+Primary keyword: KEYWORD
+
+Return ONLY JSON with these fields, no markdown:
+{"subject": "email subject line", "preview_text": "preview text", "body_html": "<p>full HTML body</p>"}
+""",
+
+    "video_scriptwriter": """\
+You are writing a short-form video script from an article. Target: 60-90 seconds total.
+
+Script rules:
+- 5-8 scenes
+- Each scene: voiceover text (what the narrator says) + visual direction (what camera shows)
+- Scene duration: 8-15 seconds each
+- Hook scene: open with a surprising fact or question — no slow intros
+- End scene: clear CTA ("Link in bio", "Save this post", or "Subscribe")
+- Voiceover: conversational, not reading from a textbook
+
+Article title: ARTICLE_TITLE
+Article excerpt: ARTICLE_BODY
+Primary keyword: KEYWORD
+
+Return ONLY a JSON array of scene objects, no markdown, no explanation:
+[{"voiceover": "what narrator says", "visual_direction": "what to show on screen", "duration": 10}, ...]
+""",
+
+    "lead_magnet_agent": """\
+You are creating a FORMAT lead magnet for the keyword: KEYWORD
+
+Lead magnet rules:
+- Format: FORMAT (checklist = numbered list of action items; ebook = structured guide with sections; template = fill-in-the-blank framework)
+- Title: specific, promise-driven, under 60 characters
+- Body: immediately useful, no filler — every item must be actionable
+- Length: checklist = 10-15 items; ebook = 5 sections × 150 words; template = 5-8 fill-in blocks
+- No upsells or promotional content inside the magnet itself
+
+Return ONLY JSON with these fields, no markdown:
+{"title": "compelling title", "body": "full content as plain text or simple HTML"}
+""",
+
+    "competitor_discovery": """\
+You are identifying competitor domains for the keyword: KEYWORD
+
+Task: find 5-8 domains that currently rank for this keyword or operate in this niche.
+Focus on direct competitors — companies targeting the same audience with similar content.
+Exclude: news sites, Wikipedia, Reddit, social platforms, government sites.
+
+Return ONLY a JSON array of domain objects, no markdown, no explanation:
+[{"domain": "example.com", "reason": "one sentence why this is a competitor"}, ...]
+""",
+
+    "strategy_synthesizer": """\
+You are synthesizing a content strategy from the top marketing opportunities for this organization.
+
+OPPORTUNITY_COUNT opportunities to analyze:
+OPPORTUNITIES_JSON
+
+Your task:
+1. Identify the top 3-5 content themes from these opportunities
+2. Recommend a content calendar sequence (which topics first, why)
+3. Flag any competitive threats or time-sensitive trends
+4. Suggest 2-3 quick wins (high score, low competition)
+
+Return ONLY JSON with these fields, no markdown:
+{
+  "summary": "2-3 sentence executive summary of the strategic situation",
+  "recommendations": [
+    {"priority": 1, "action": "specific recommendation", "rationale": "why this first", "expected_impact": "high/medium/low"},
+    ...
+  ]
+}
+""",
+
+    "ai_assistant": """\
+You are a marketing AI assistant. Answer the user's question using the provided context.
+
+Rules:
+- Answer directly and specifically — no vague generalities
+- If the context contains relevant information, cite it (e.g., "Based on your brand guide...")
+- If the context doesn't cover the question, say so and answer from general marketing knowledge
+- Keep answers under 300 words unless a longer answer is clearly warranted
+- Format with bullet points or numbered lists when listing multiple items
+
+Context from knowledge base:
+CONTEXT
+
+User question: QUESTION
+
+Answer:
 """,
 }
 

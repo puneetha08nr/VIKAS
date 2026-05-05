@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy import update as sa_update
@@ -75,11 +75,12 @@ async def run_agent(
 
 @router.get("/runs")
 async def list_runs(
+    limit: int = Query(50, ge=1, le=200),
     org: Organization = Depends(get_current_org),
     db: AsyncSession = Depends(get_db_for_org),
 ) -> list[dict]:
     result = await db.execute(
-        select(AgentRun).order_by(AgentRun.started_at.desc()).limit(50)
+        select(AgentRun).order_by(AgentRun.started_at.desc()).limit(limit)
     )
     runs = result.scalars().all()
     return [_run_summary(r) for r in runs]

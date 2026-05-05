@@ -2,15 +2,30 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Search, FileText, BookOpen, Settings, LogOut, Zap } from "lucide-react";
+import {
+  LayoutDashboard,
+  Search,
+  Target,
+  FileText,
+  Users,
+  Video,
+  BarChart2,
+  Settings,
+  LogOut,
+  Zap,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 
 const NAV_ITEMS = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/keywords", label: "Keywords", icon: Search },
+  { href: "/opportunities", label: "Opportunities", icon: Target },
   { href: "/content", label: "Content", icon: FileText },
-  { href: "/knowledge", label: "Knowledge", icon: BookOpen },
+  { href: "/competitors", label: "Competitors", icon: Users },
+  { href: "/video-queue", label: "Video Queue", icon: Video },
+  { href: "/strategy", label: "Strategy", icon: BarChart2 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

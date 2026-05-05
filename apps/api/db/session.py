@@ -21,6 +21,22 @@ AsyncSessionLocal = async_sessionmaker(
     class_=AsyncSession,
 )
 
+# Admin engine — uses ADMIN_DATABASE_URL (superuser, bypasses RLS).
+# Falls back to regular engine when ADMIN_DATABASE_URL is not configured.
+_admin_url = settings.admin_database_url or settings.database_url
+_admin_engine = create_async_engine(
+    _admin_url,
+    echo=False,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+)
+AdminSessionLocal = async_sessionmaker(
+    _admin_engine,
+    expire_on_commit=False,
+    class_=AsyncSession,
+)
+
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency — plain session with no RLS context (use for admin/internal ops)."""

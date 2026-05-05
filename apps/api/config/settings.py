@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     log_level: str = "DEBUG"
     daily_cost_limit_usd: float = Field(default=50.0, alias="DAILY_COST_LIMIT_USD")
     cors_origins: list[str] = ["http://localhost:3000"]
+    base_url: str = "http://localhost:8000"  # public base URL for generated links
 
     # ── LLM providers ─────────────────────────────────────────────────────────
     llm_provider: str = "ollama"   # ollama | google | anthropic | openai
@@ -63,6 +64,13 @@ class Settings(BaseSettings):
     # ── Notifications ─────────────────────────────────────────────────────────
     slack_webhook_url: str = ""
     slack_alert_channel: str = "#vikas-alerts"
+
+    # ── Email / SMTP ──────────────────────────────────────────────────────────
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    video_team_email: str = ""
 
     # ── Integrations ──────────────────────────────────────────────────────────
     gsc_service_account_json: str = ""

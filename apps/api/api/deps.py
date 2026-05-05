@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.settings import settings
 from db.models.organizations import Organization
-from db.session import AsyncSessionLocal, org_session
+from db.session import AdminSessionLocal, AsyncSessionLocal, org_session
 
 logger = logging.getLogger(__name__)
 
@@ -101,4 +101,15 @@ async def get_db_for_org(
 ) -> AsyncGenerator[AsyncSession, None]:
     """Yield an RLS-scoped AsyncSession pinned to the caller's org."""
     async with org_session(str(org.id)) as session:
+        yield session
+
+
+async def get_admin_db() -> AsyncGenerator[AsyncSession, None]:
+    """Yield an admin (superuser) session that bypasses RLS.
+
+    Use only for public endpoints where the credential IS the secret token
+    (e.g. video upload by external team). Never expose user-scoped data through
+    this dependency without explicit org filtering in the query.
+    """
+    async with AdminSessionLocal() as session:
         yield session

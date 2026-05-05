@@ -25,10 +25,20 @@ class CompetitorMonitorAgent(BaseAgent):
 
     async def execute(self, ctx: AgentContext) -> AgentResult:
         domains: list[str] = ctx.params.get("competitors", [])
+
+        # Fall back to domains already stored for this org
+        if not domains:
+            domains = await _fetch_stored_domains(ctx.org_id, ctx.db)
+
         if not domains:
             return AgentResult(
-                status="failed",
-                error="'competitors' param required — pass a list of domains",
+                status="success",
+                data={
+                    "competitors_monitored": 0,
+                    "total": 0,
+                    "results": [],
+                    "message": "No competitor domains found. Pass 'competitors' param or seed the competitors table.",
+                },
             )
 
         integration = SitemapIntegration()
@@ -85,3 +95,16 @@ async def _ensure_competitor(org_id: str, domain: str, db: AsyncSession) -> None
         ),
         {"org_id": org_id, "domain": domain},
     )
+
+
+async def _fetch_stored_domains(org_id: str, db: AsyncSession) -> list[str]:
+    """Return all competitor domains already in the DB for this org."""
+    result = await db.execute(
+        text(
+            "SELECT domain FROM competitors "
+            "WHERE org_id = :org_id "
+            "ORDER BY last_crawled_at ASC NULLS FIRST"
+        ),
+        {"org_id": org_id},
+    )
+    return [row[0] for row in result.fetchall()]

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.v1.router import router as v1_router
 from config.settings import settings
 from db.session import engine
+from routers import video_jobs, video_upload
 
 
 @asynccontextmanager
@@ -31,6 +32,8 @@ app.add_middleware(
 )
 
 app.include_router(v1_router, prefix="/api/v1")
+app.include_router(video_upload.router, prefix="/api")
+app.include_router(video_jobs.router, prefix="/api")
 
 
 @app.get("/health", tags=["ops"])

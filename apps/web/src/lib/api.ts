@@ -2,9 +2,22 @@ import axios from "axios";
 import { supabase } from "./supabase";
 import type {
   AgentRun,
+  AeoResult,
+  Article,
+  AutoModeSettings,
+  BrandVoice,
+  Competitor,
+  CompetitorContent,
   KeywordDetail,
   KeywordRow,
   KeywordStats,
+  LinkedInPost,
+  Newsletter,
+  Opportunity,
+  RankTracking,
+  StrategyReport,
+  TwitterThread,
+  VideoJob,
 } from "./types";
 
 const axiosInstance = axios.create({
@@ -46,7 +59,25 @@ export interface AgentRunStatus {
 }
 
 // Re-export types for pages that import them from here
-export type { KeywordRow, KeywordStats, AgentRun, KeywordDetail };
+export type {
+  KeywordRow,
+  KeywordStats,
+  AgentRun,
+  KeywordDetail,
+  Opportunity,
+  Article,
+  LinkedInPost,
+  TwitterThread,
+  Newsletter,
+  Competitor,
+  CompetitorContent,
+  VideoJob,
+  StrategyReport,
+  RankTracking,
+  AeoResult,
+  BrandVoice,
+  AutoModeSettings,
+};
 
 export async function getAgentRun(runId: string): Promise<AgentRunStatus> {
   const { data } = await axiosInstance.get<AgentRunStatus>(
@@ -134,6 +165,139 @@ export const api = {
     get: (run_id: string) =>
       axiosInstance
         .get<AgentRun>(`/api/v1/agents/runs/${run_id}`)
+        .then((r) => r.data),
+
+    list: (limit = 20) =>
+      axiosInstance
+        .get<AgentRun[]>("/api/v1/agents/runs", { params: { limit } })
+        .then((r) => r.data),
+  },
+
+  agents: {
+    run: (agent_name: string, params: Record<string, unknown> = {}) =>
+      axiosInstance
+        .post<{ run_id: string }>(`/api/v1/agents/${agent_name}/run`, { params })
+        .then((r) => r.data),
+  },
+
+  opportunities: {
+    list: (params?: { order?: string; limit?: number; status?: string }) =>
+      axiosInstance
+        .get<Opportunity[]>("/api/v1/opportunities", { params })
+        .then((r) => r.data),
+  },
+
+  articles: {
+    list: (params?: { status?: string; limit?: number }) =>
+      axiosInstance
+        .get<Article[]>("/api/v1/articles", { params })
+        .then((r) => r.data),
+
+    update: (id: string, data: Partial<Article>) =>
+      axiosInstance
+        .put<Article>(`/api/v1/articles/${id}`, data)
+        .then((r) => r.data),
+  },
+
+  linkedInPosts: {
+    list: (params?: { article_id?: string; limit?: number }) =>
+      axiosInstance
+        .get<LinkedInPost[]>("/api/v1/linkedin-posts", { params })
+        .then((r) => r.data),
+  },
+
+  twitterThreads: {
+    list: (params?: { article_id?: string; limit?: number }) =>
+      axiosInstance
+        .get<TwitterThread[]>("/api/v1/twitter-threads", { params })
+        .then((r) => r.data),
+  },
+
+  newsletters: {
+    list: (params?: { article_id?: string; limit?: number }) =>
+      axiosInstance
+        .get<Newsletter[]>("/api/v1/newsletters", { params })
+        .then((r) => r.data),
+  },
+
+  competitors: {
+    list: () =>
+      axiosInstance
+        .get<Competitor[]>("/api/v1/competitors")
+        .then((r) => r.data),
+
+    add: (domain: string) =>
+      axiosInstance
+        .post<Competitor>("/api/v1/competitors", { domain })
+        .then((r) => r.data),
+
+    remove: (id: string) =>
+      axiosInstance.delete(`/api/v1/competitors/${id}`).then((r) => r.data),
+  },
+
+  competitorContent: {
+    list: (params?: { order?: string; limit?: number }) =>
+      axiosInstance
+        .get<CompetitorContent[]>("/api/v1/competitor-content", { params })
+        .then((r) => r.data),
+  },
+
+  videoJobs: {
+    list: (params?: { status?: string }) =>
+      axiosInstance
+        .get<VideoJob[]>("/api/video-jobs", { params })
+        .then((r) => r.data),
+
+    update: (id: string, data: Partial<VideoJob>) =>
+      axiosInstance
+        .put<VideoJob>(`/api/video-jobs/${id}`, data)
+        .then((r) => r.data),
+  },
+
+  strategy: {
+    latestReport: () =>
+      axiosInstance
+        .get<StrategyReport[]>("/api/v1/strategy-reports", {
+          params: { limit: 1, order: "desc" },
+        })
+        .then((r) => r.data[0] ?? null),
+  },
+
+  rankTracking: {
+    list: (params?: { order?: string; limit?: number }) =>
+      axiosInstance
+        .get<RankTracking[]>("/api/v1/rank-tracking", { params })
+        .then((r) => r.data),
+  },
+
+  aeo: {
+    list: () =>
+      axiosInstance
+        .get<AeoResult[]>("/api/v1/aeo-results")
+        .then((r) => r.data),
+  },
+
+  brandVoice: {
+    get: () =>
+      axiosInstance
+        .get<BrandVoice>("/api/v1/brand-voice")
+        .then((r) => r.data),
+
+    update: (data: Partial<BrandVoice>) =>
+      axiosInstance
+        .put<BrandVoice>("/api/v1/brand-voice", data)
+        .then((r) => r.data),
+  },
+
+  autoMode: {
+    get: () =>
+      axiosInstance
+        .get<AutoModeSettings>("/api/v1/settings/auto-mode")
+        .then((r) => r.data),
+
+    update: (data: Partial<AutoModeSettings>) =>
+      axiosInstance
+        .put<AutoModeSettings>("/api/v1/settings/auto-mode", data)
         .then((r) => r.data),
   },
 };

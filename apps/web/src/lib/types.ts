@@ -63,3 +63,160 @@ export interface KeywordDetail extends KeywordRow {
   content_count: number
   trend_data: number[]
 }
+
+// ── Opportunities ─────────────────────────────────────────────────────────────
+
+export interface Opportunity {
+  id: string
+  keyword_id: string
+  keyword: string
+  source: string
+  search_score: number | null
+  competitive_gap_score: number | null
+  trend_score: number | null
+  engagement_score: number | null
+  composite_score: number | null
+  status: string
+  created_at: string
+}
+
+// ── Content / Articles ────────────────────────────────────────────────────────
+
+export type ArticleStatus = 'draft' | 'review' | 'approved' | 'published'
+
+export interface Article {
+  id: string
+  org_id: string
+  opportunity_id: string | null
+  title: string
+  body_html: string | null
+  word_count: number | null
+  keyword: string | null
+  status: ArticleStatus
+  published_url: string | null
+  brand_voice_score: number | null
+  seo_score: number | null
+  created_at: string
+}
+
+export interface LinkedInPost {
+  id: string
+  article_id: string | null
+  content: string | null
+  hashtags: string[] | null
+  status: string
+  created_at: string
+}
+
+export interface TwitterThread {
+  id: string
+  article_id: string | null
+  tweets: string[]
+  tweet_count: number
+  status: string
+  created_at: string
+}
+
+export interface Newsletter {
+  id: string
+  article_id: string | null
+  subject: string | null
+  preview_text: string | null
+  body_html: string | null
+  status: string
+  created_at: string
+}
+
+// ── Competitors ───────────────────────────────────────────────────────────────
+
+export interface Competitor {
+  id: string
+  domain: string
+  last_crawled_at: string | null
+  threat_score?: number | null
+  keyword_overlap?: number | null
+}
+
+export interface CompetitorContent {
+  id: string
+  competitor_id: string
+  domain?: string
+  url: string
+  title: string | null
+  word_count: number | null
+  threat_score: number | null
+  keywords_overlap: string[] | null
+  created_at: string
+}
+
+// ── Video Jobs ────────────────────────────────────────────────────────────────
+
+export type VideoJobStatus = 'pending_video' | 'video_ready' | 'published' | 'failed'
+
+export interface VideoJob {
+  id: string
+  article_id: string | null
+  title: string | null
+  scene_count: number | null
+  duration_seconds: number | null
+  status: VideoJobStatus
+  upload_url: string | null
+  video_url: string | null
+  notes: string | null
+  created_at: string
+}
+
+// ── Strategy ──────────────────────────────────────────────────────────────────
+
+export interface StrategyReport {
+  id: string
+  opportunities_analyzed: number
+  recommendations: StrategyRecommendation[]
+  summary: string | null
+  status: string
+  created_at: string
+}
+
+export interface StrategyRecommendation {
+  priority: number
+  action: string
+  rationale?: string
+  expected_impact?: 'high' | 'medium' | 'low'
+}
+
+export interface RankTracking {
+  id: string
+  keyword_id: string
+  keyword: string
+  position: number | null
+  previous_position: number | null
+  url: string | null
+  checked_at: string
+}
+
+export interface AeoResult {
+  id: string
+  keyword_id: string
+  keyword: string
+  has_ai_overview: boolean
+  has_featured_snippet: boolean
+  paa_count: number
+  checked_at: string
+}
+
+// ── Brand Voice & Settings ────────────────────────────────────────────────────
+
+export interface BrandVoice {
+  id: string
+  tone: string | null
+  vocabulary: string[] | null
+  banned_phrases: string[] | null
+  style_rules: Record<string, string> | null
+}
+
+export interface AutoModeSettings {
+  enabled: boolean
+  schedule_time: string
+  seed_keywords: string[]
+  max_daily_pipelines: number
+}
