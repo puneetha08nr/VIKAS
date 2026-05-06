@@ -43,7 +43,11 @@ RUN uv pip install --system \
     google-api-python-client>=2.130.0 \
     pytrends>=4.9.0 \
     "beautifulsoup4>=4.12.0" \
-    "lxml>=5.2.0"
+    "lxml>=5.2.0" \
+    "pypdf>=4.0.0" \
+    "python-docx>=1.1.0" \
+    "anyio>=4.4.0" \
+    "python-multipart>=0.0.9"
 
 # Copy application code
 COPY apps/api/ .
