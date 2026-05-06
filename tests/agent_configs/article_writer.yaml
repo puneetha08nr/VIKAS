@@ -1,0 +1,34 @@
+agent_name: article_writer
+tier: standard
+uses_llm: true
+output_table: articles
+has_rls: true
+external_dependency: none
+skip_concurrent: true  # LLM cost
+
+happy_path_params:
+  article_plan_id: ~  # null — writer creates standalone article
+  keyword: "ai marketing automation"
+  title: "The Complete Guide to AI Marketing Automation"
+
+row_count_sql: "SELECT COUNT(*) FROM articles WHERE org_id = '{org_id}'"
+expected_min_rows: 0
+idempotent: false
+
+api_read_endpoint: "GET /api/v1/articles"
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/article_writer/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /content
+ui_component: "Articles table with body preview"
+ui_checklist:
+  - "Articles appear in /content with title and status=draft"
+  - "body_html is not empty (has actual HTML content)"
+  - "word_count is a numeric value > 0"
+  - "Clicking article opens editor / detail view"
+  - "Edit and approve buttons visible for draft articles"

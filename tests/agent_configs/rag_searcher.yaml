@@ -1,0 +1,31 @@
+agent_name: rag_searcher
+tier: fast
+uses_llm: false
+output_table: ~  # read-only — returns chunks inline
+has_rls: false
+external_dependency: embeddings_model
+skip_concurrent: false
+
+happy_path_params:
+  query: "brand voice guidelines"
+  top_k: 5
+
+row_count_sql: ~
+expected_min_rows: 0
+idempotent: true
+
+api_read_endpoint: ~
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/rag_searcher/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /chat
+ui_component: "AI chat RAG context panel"
+ui_checklist:
+  - "Chat interface shows retrieved context chunks in sidebar"
+  - "Chunks are ranked by relevance (highest first)"
+  - "Source document name is shown for each chunk"

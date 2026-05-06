@@ -1,0 +1,32 @@
+agent_name: twitter_agent
+tier: standard
+uses_llm: true
+output_table: twitter_threads
+has_rls: true
+external_dependency: none
+skip_concurrent: true
+
+happy_path_params:
+  article_id: ~
+  keyword: "ai marketing automation"
+
+row_count_sql: "SELECT COUNT(*) FROM twitter_threads WHERE org_id = '{org_id}'"
+expected_min_rows: 0
+idempotent: false
+
+api_read_endpoint: "GET /api/v1/twitter-threads"
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/twitter_agent/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /content
+ui_component: "Twitter/X threads tab"
+ui_checklist:
+  - "Twitter threads appear with individual tweet preview"
+  - "tweets JSONB rendered as numbered tweet list (not raw JSON)"
+  - "Thread length shown (tweet count)"
+  - "Status badge visible (draft/approved)"

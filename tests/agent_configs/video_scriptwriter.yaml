@@ -1,0 +1,32 @@
+agent_name: video_scriptwriter
+tier: standard
+uses_llm: true
+output_table: video_scripts
+has_rls: true
+external_dependency: none
+skip_concurrent: true
+
+happy_path_params:
+  article_id: ~
+  keyword: "ai marketing automation"
+  target_duration_seconds: 120
+
+row_count_sql: "SELECT COUNT(*) FROM video_scripts WHERE org_id = '{org_id}'"
+expected_min_rows: 0
+idempotent: false
+
+api_read_endpoint: ~
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/video_scriptwriter/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /content
+ui_component: "Video scripts section"
+ui_checklist:
+  - "Video scripts appear with scenes breakdown (not raw JSONB)"
+  - "total_duration_seconds is numeric"
+  - "Each scene has text and duration fields visible"

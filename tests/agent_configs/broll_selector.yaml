@@ -1,0 +1,31 @@
+agent_name: broll_selector
+tier: fast
+uses_llm: false
+output_table: broll_suggestions
+has_rls: true
+external_dependency: pexels_api
+# Requires PEXELS_API_KEY env var. Without it, agent returns empty with warning.
+skip_concurrent: false
+
+happy_path_params:
+  scene_descriptions: ["person typing on laptop", "team meeting in office"]
+
+row_count_sql: "SELECT COUNT(*) FROM broll_suggestions WHERE org_id = '{org_id}'"
+expected_min_rows: 0
+idempotent: false
+
+api_read_endpoint: ~
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/broll_selector/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /video-queue
+ui_component: "B-roll suggestions panel in video job detail"
+ui_checklist:
+  - "Video job detail shows b-roll thumbnail previews"
+  - "Each suggestion has pexels_id and preview_url"
+  - "Without Pexels API key — shows 'B-roll unavailable' message, not crash"

@@ -1,0 +1,31 @@
+agent_name: content_extractor
+tier: fast
+uses_llm: false
+output_table: competitor_content
+has_rls: true
+external_dependency: httpx_content_fetch
+skip_concurrent: true
+
+happy_path_params:
+  competitor_ids: []  # fetches from DB
+  limit: 5
+
+row_count_sql: "SELECT COUNT(*) FROM competitor_content WHERE org_id = '{org_id}'"
+expected_min_rows: 0
+idempotent: true  # upsert by URL
+
+api_read_endpoint: "GET /api/v1/competitor-content"
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/content_extractor/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /competitors
+ui_component: "Competitor content list"
+ui_checklist:
+  - "Competitor content rows show URL, title, and word_count"
+  - "Threat score is numeric (0.0–1.0)"
+  - "Empty state shows if no competitors have been monitored yet"

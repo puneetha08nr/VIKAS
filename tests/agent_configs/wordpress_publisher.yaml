@@ -1,0 +1,34 @@
+agent_name: wordpress_publisher
+tier: fast
+uses_llm: false
+output_table: articles
+has_rls: true
+external_dependency: wordpress_required
+# Requires WORDPRESS_URL and WORDPRESS_APP_PASSWORD env vars.
+# Agent will fail gracefully if not configured — check logs for WP_NOT_CONFIGURED.
+skip_concurrent: false
+
+happy_path_params:
+  article_id: ~  # must be a real approved article UUID; null = agent logs warning
+  wp_status: "draft"
+
+row_count_sql: "SELECT COUNT(*) FROM articles WHERE org_id = '{org_id}' AND published_url IS NOT NULL"
+expected_min_rows: 0
+idempotent: true
+
+api_read_endpoint: ~
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/wordpress_publisher/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /content
+ui_component: "Publish to WordPress button on approved articles"
+ui_checklist:
+  - "Approved articles show 'Publish' button"
+  - "After publish — published_url appears on article row"
+  - "Status updates from approved → published"
+  - "Without WP credentials — user sees clear error message (not crash)"

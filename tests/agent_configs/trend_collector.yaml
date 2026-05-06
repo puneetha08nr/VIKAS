@@ -1,0 +1,33 @@
+agent_name: trend_collector
+tier: fast
+uses_llm: false
+output_table: trend_signals
+has_rls: true
+external_dependency: pytrends
+# pytrends makes unauthenticated requests to Google Trends — rate-limited
+skip_concurrent: true
+
+happy_path_params:
+  keywords: ["ai marketing", "content automation"]
+  timeframe: "today 3-m"
+  geo: "US"
+
+row_count_sql: "SELECT COUNT(*) FROM trend_signals WHERE org_id = '{org_id}'"
+expected_min_rows: 0  # pytrends may return empty if rate-limited
+idempotent: false
+
+api_read_endpoint: ~
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/trend_collector/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /dashboard
+ui_component: "Trend signals widget"
+ui_checklist:
+  - "Dashboard shows recent trend signals or 'no trends' empty state"
+  - "Trend signals have source label (google_trends, reddit, etc.)"
+  - "Momentum values are numeric (0–10 scale)"

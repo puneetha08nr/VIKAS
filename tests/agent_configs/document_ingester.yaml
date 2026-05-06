@@ -1,0 +1,33 @@
+agent_name: document_ingester
+tier: fast
+uses_llm: false
+output_table: knowledge_chunks
+has_rls: true
+external_dependency: embeddings_model
+# Needs sentence-transformers or OpenAI embeddings to generate vectors.
+skip_concurrent: true
+
+happy_path_params:
+  file_path: "scripts/seed_db.py"  # small real file in the repo for testing
+  source_name: "seed_db_test"
+  chunk_size: 200
+
+row_count_sql: "SELECT COUNT(*) FROM knowledge_chunks WHERE org_id = '{org_id}'"
+expected_min_rows: 0
+idempotent: false
+
+api_read_endpoint: ~
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/document_ingester/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /knowledge
+ui_component: "Document upload / knowledge base section"
+ui_checklist:
+  - "Knowledge base shows uploaded document list with chunk count"
+  - "Uploading a PDF adds it and shows processing status"
+  - "After ingestion, chunks appear in RAG search results"
