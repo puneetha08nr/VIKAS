@@ -39,25 +39,25 @@ def upgrade() -> None:
             "scenes",
             postgresql.JSONB(astext_type=sa.Text()),
             nullable=False,
-            server_default="'[]'::jsonb",
+            server_default=sa.text("'[]'::jsonb"),
         ),
         sa.Column(
             "broll_suggestions",
             postgresql.JSONB(astext_type=sa.Text()),
             nullable=False,
-            server_default="'[]'::jsonb",
+            server_default=sa.text("'[]'::jsonb"),
         ),
         sa.Column(
             "brand_voice",
             postgresql.JSONB(astext_type=sa.Text()),
             nullable=False,
-            server_default="'{}'::jsonb",
+            server_default=sa.text("'{}'::jsonb"),
         ),
         sa.Column(
             "status",
             sa.String(20),
             nullable=False,
-            server_default="'pending_video'",
+            server_default=sa.text("'pending_video'"),
         ),
         sa.Column("video_url", sa.Text, nullable=True),
         sa.Column("thumbnail_url", sa.Text, nullable=True),
@@ -90,11 +90,11 @@ def upgrade() -> None:
     )
     op.create_index("ix_video_jobs_status", "video_jobs", ["status"])
 
+    op.execute("ALTER TABLE video_jobs ENABLE ROW LEVEL SECURITY")
     op.execute(
         """
-        ALTER TABLE video_jobs ENABLE ROW LEVEL SECURITY;
         CREATE POLICY video_jobs_org_isolation ON video_jobs
-            USING (org_id = current_setting('app.current_org_id')::uuid);
+            USING (org_id = current_setting('app.current_org_id')::uuid)
         """
     )
 

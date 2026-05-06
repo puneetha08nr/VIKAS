@@ -24,18 +24,20 @@ def upgrade() -> None:
                   sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
         sa.Column("opportunities_analyzed", sa.Integer, nullable=False, server_default="0"),
         sa.Column("recommendations", postgresql.JSONB(astext_type=sa.Text()),
-                  nullable=False, server_default="'[]'::jsonb"),
+                  nullable=False, server_default=sa.text("'[]'::jsonb")),
         sa.Column("summary", sa.Text, nullable=True),
-        sa.Column("status", sa.String(20), nullable=False, server_default="'success'"),
+        sa.Column("status", sa.String(20), nullable=False, server_default=sa.text("'success'")),
         sa.Column("created_at", sa.DateTime(timezone=True),
                   server_default=sa.text("now()"), nullable=False),
     )
     op.create_index("ix_strategy_reports_org_id", "strategy_reports", ["org_id"])
-    op.execute("""
-        ALTER TABLE strategy_reports ENABLE ROW LEVEL SECURITY;
+    op.execute("ALTER TABLE strategy_reports ENABLE ROW LEVEL SECURITY")
+    op.execute(
+        """
         CREATE POLICY strategy_reports_org_isolation ON strategy_reports
-            USING (org_id = current_setting('app.current_org_id')::uuid);
-    """)
+            USING (org_id = current_setting('app.current_org_id')::uuid)
+        """
+    )
 
 
 def downgrade() -> None:

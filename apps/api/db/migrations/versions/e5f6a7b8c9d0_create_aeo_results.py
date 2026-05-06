@@ -67,11 +67,11 @@ def upgrade() -> None:
     op.create_index("ix_aeo_results_keyword_id", "aeo_results", ["keyword_id"])
     op.create_index("ix_aeo_results_scanned_at", "aeo_results", ["scanned_at"])
 
+    op.execute("ALTER TABLE aeo_results ENABLE ROW LEVEL SECURITY")
     op.execute(
         """
-        ALTER TABLE aeo_results ENABLE ROW LEVEL SECURITY;
         CREATE POLICY aeo_results_org_isolation ON aeo_results
-            USING (org_id = current_setting('app.current_org_id')::uuid);
+            USING (org_id = current_setting('app.current_org_id')::uuid)
         """
     )
 

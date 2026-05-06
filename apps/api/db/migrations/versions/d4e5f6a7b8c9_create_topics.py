@@ -38,7 +38,7 @@ def upgrade() -> None:
             "related_keywords",
             postgresql.JSONB(astext_type=sa.Text()),
             nullable=False,
-            server_default="'[]'::jsonb",
+            server_default=sa.text("'[]'::jsonb"),
         ),
         sa.Column(
             "detected_at",
@@ -62,11 +62,11 @@ def upgrade() -> None:
     op.create_index("ix_topics_org_id", "topics", ["org_id"])
     op.create_index("ix_topics_detected_at", "topics", ["detected_at"])
 
+    op.execute("ALTER TABLE topics ENABLE ROW LEVEL SECURITY")
     op.execute(
         """
-        ALTER TABLE topics ENABLE ROW LEVEL SECURITY;
         CREATE POLICY topics_org_isolation ON topics
-            USING (org_id = current_setting('app.current_org_id')::uuid);
+            USING (org_id = current_setting('app.current_org_id')::uuid)
         """
     )
 
