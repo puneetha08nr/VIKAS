@@ -440,7 +440,39 @@ from rag.embeddings import EmbeddingGenerator  # must be module-level for patch(
 
 **Fix:** After running `ruff --fix`, always run `git add -p` (or `git status` + `git add`) to stage the auto-fixed files, then commit them before pushing.
 
-**Rule:** `ruff --fix` modifies files in-place. Check `git status` after running it. If modified files appear, they must be staged and committed. Never push after `ruff --fix` without first verifying `git status` shows nothing unstaged.
+---
+
+## Frontend / UI
+
+### BUG-UI-003 — brand_voice_keeper: style_rules and target_audience fields missing from Settings page
+
+**Agent:** brand_voice_keeper  
+**Layer:** C — UI  
+**Check:** C2 Form fields  
+**Severity:** Medium  
+**Discovered:** 2026-05-06 via test harness UI checklist review  
+
+**Symptom:** The `/settings` Brand Voice form does not expose the `style_rules` object or a `target_audience` field. Users who want to set style rules (e.g. `max_sentence_length`, `prefer_active_voice`, `oxford_comma`) or specify a target audience have no way to do so through the UI. The values can only be written via the CLI or direct API call.
+
+**Root cause:** The `brand_voice` DB schema stores `style_rules` as a JSONB object with arbitrary keys, and the `BrandVoiceKeeperAgent` accepts `style_rules` as a parameter. However, the Settings page component (`apps/web`) was built with only `tone`, `vocabulary`, and `banned_phrases` form fields. The `style_rules` key was known at design time but deferred as a "later" addition and never implemented. `target_audience` is not a current DB column — it would need a migration if added.
+
+**Impact:**
+- `style_rules` values set via CLI/API are **not corrupted** on UI save — the `PUT /api/v1/brand-voice` handler uses `if body.style_rules is not None` guard, so omitting style_rules from the request body preserves the existing DB value silently.
+- Users have no visibility into which style rules are currently active — they cannot read them from the UI.
+- Users cannot edit style rules from the UI — the only paths are CLI agent run or direct API call.
+- Any content agent that reads `style_rules` for prompt injection receives empty rules for orgs that have only ever used the UI (since they've never been able to set them).
+
+**Fix required:**
+1. `apps/web` — Add `style_rules` as an editable key-value section in the Brand Voice settings form. Each style rule should be an add/remove pair (key + value). Use the `PUT /api/v1/brand-voice` endpoint — it already accepts `style_rules`.
+2. Decide whether `target_audience` is a first-class column (requires Alembic migration + agent param support) or a key inside `style_rules` (no migration needed — just a convention). Add the corresponding form field once decided.
+3. Ensure the PUT handler merges incoming `style_rules` with existing ones (currently it replaces entirely on PUT — verify this is acceptable).
+
+**UI checklist items added to brand_voice_keeper config:**
+- `[ ] Style rules section renders key-value pairs, not raw JSON blob`
+- `[ ] Target audience field is visible`
+- `[ ] Target audience accepts free text`
+
+**Status:** Open — fix not yet implemented.
 
 ---
 

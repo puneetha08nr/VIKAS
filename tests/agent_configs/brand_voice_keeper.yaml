@@ -44,3 +44,7 @@ ui_checklist:
   - "Editing tone and saving — new value persists after page refresh"
   - "Adding a vocabulary term — term appears in list immediately"
   - "Style rules section renders key-value pairs, not raw JSON blob"
+  - "Target audience field is visible"
+  - "Target audience accepts free text"
+  # BUG-UI-003: last two items currently FAIL — style_rules editor and
+  # target_audience field not implemented in apps/web settings page.

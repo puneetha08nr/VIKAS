@@ -45,9 +45,13 @@
 - [ ] Editing tone and saving — new value persists after page refresh
 - [ ] Adding a vocabulary term — term appears in list immediately
 - [ ] Style rules section renders key-value pairs, not raw JSON blob
+- [ ] Target audience field is visible
+- [ ] Target audience accepts free text
 
 ---
 
 ## Bugs Found
 
-_(none — all checks passed)_
+| ID | Layer | Severity | Description |
+|---|---|---|---|
+| BUG-UI-003 | C — UI / C2 Form fields | Medium | Settings page missing `style_rules` key-value editor and `target_audience` field. Values exist in DB schema and agent accepts them as params but UI does not expose them — users cannot set these values. Saving the form overwrites any CLI-set `style_rules` with `{}`. Fix: add fields to `apps/web` settings page component. See ISSUES_AND_FIXES.md §BUG-UI-003. |
