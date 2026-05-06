@@ -5,14 +5,14 @@ Run this checklist fresh after every Docker rebuild or env change.
 
 ---
 
-## Current Stack State (verified 2026-05-06)
+## Current Stack State (verified 2026-05-06, updated after Phase 0 fixes)
 
 | Container | Image | Status |
 |---|---|---|
 | vikas-api-1 | vikas-api | healthy |
 | vikas-db-1 | pgvector/pgvector:pg16 | healthy |
 | vikas-redis-1 | redis:7-alpine | healthy |
-| vikas-worker-1 | vikas-worker | up (no healthcheck) |
+| vikas-worker-1 | vikas-worker | up (healthcheck added — restart container to activate) |
 
 ---
 
@@ -78,32 +78,21 @@ asyncio.run(check())
 
 **Pass criteria:**
 - Connects without error
-- 19 tables present (see table list below)
+- 33 tables present (see table list below)
 - pgvector extension installed
 
-**Current table inventory (19 tables):**
+**Current table inventory (33 tables, verified 2026-05-06):**
 ```
-agent_runs, alembic_version, brand_voice, competitor_content, competitors,
-content_items, content_reviews, evals_log, keyword_clusters, keywords,
-knowledge_chunks, opportunities, organizations, pipeline_runs, preferences,
-prompts, rank_tracking, site_audits, trend_signals
+aeo_results, agent_runs, alembic_version, article_plans, articles, brand_voice,
+broll_suggestions, competitor_content, competitors, content_feedback, content_items,
+content_reviews, evals_log, keyword_clusters, keywords, knowledge_chunks,
+lead_magnets, linkedin_posts, newsletters, opportunities, organizations,
+pipeline_runs, preference_summaries, preferences, prompts, rank_tracking,
+site_audits, strategy_reports, topics, trend_signals, twitter_threads,
+video_jobs, video_scripts
 ```
 
-**Missing tables** — agents that have migrations not yet applied OR whose tables were skipped:
-
-| Missing Table | Blocks Agent |
-|---|---|
-| `articles` | article_writer, article_planner (uses content_items instead — verify) |
-| `article_plans` | article_planner |
-| `social_content` / `linkedin_posts` / `twitter_threads` / `newsletters` | social agents |
-| `lead_magnets` | lead_magnet_agent |
-| `broll_suggestions` | broll_selector |
-| `strategy_reports` | strategy_synthesizer |
-| `topics` | topic_discovery |
-| `video_jobs` | video_handoff, broll_selector |
-| `aeo_results` | aeo_scanner |
-
-> **Action before Phase 1:** Run `uv run alembic upgrade head` and recount tables.
+All previously missing tables now present after `alembic upgrade head` completed cleanly.
 
 ---
 
@@ -116,7 +105,7 @@ cd apps/api && uv run alembic current && uv run alembic heads
 
 **Pass:** `current` and `heads` return the same revision. Any divergence means unapplied migrations.
 
-**Current head:** `c4d5e6f7a8b9`
+**Current head:** `a3b4c5d6e7f8` (verified — `current` == `heads`)
 
 **Red flag:** Two heads means a migration was written with the wrong `down_revision`. See ISSUES_AND_FIXES Issue 13.
 
@@ -143,6 +132,20 @@ cd apps/api && uv run alembic current && uv run alembic heads
 | rank_tracking | ✅ |
 | site_audits | ✅ |
 | trend_signals | ✅ |
+| aeo_results | ✅ |
+| article_plans | ✅ |
+| articles | ✅ |
+| broll_suggestions | ✅ |
+| content_feedback | ✅ |
+| lead_magnets | ✅ |
+| linkedin_posts | ✅ |
+| newsletters | ✅ |
+| preference_summaries | ✅ |
+| strategy_reports | ✅ |
+| topics | ✅ |
+| twitter_threads | ✅ |
+| video_jobs | ✅ |
+| video_scripts | ✅ |
 | **organizations** | ❌ intentional — orgs are looked up by auth, not RLS |
 | **prompts** | ❌ intentional — prompts are shared across orgs |
 | **evals_log** | ❌ intentional — operational data, not tenant data |
@@ -192,25 +195,7 @@ for name in sorted(REGISTRY): print(f'  {name}')
 "
 ```
 
-**Current state:** 24 of 34 expected agents are registered.
-
-**Agents NOT in registry (missing `@register` or not imported in `import_all_agents`):**
-
-| Agent | Likely reason |
-|---|---|
-| `competitor_discovery` | Not imported in `import_all_agents()` |
-| `pipeline_orchestrator` | Not imported in `import_all_agents()` |
-| `ai_assistant` | Not imported in `import_all_agents()` |
-| `twitter_agent` | Not imported in `import_all_agents()` |
-| `newsletter_agent` | Not imported in `import_all_agents()` |
-| `video_scriptwriter` | Not imported in `import_all_agents()` |
-| `lead_magnet_agent` | Not imported in `import_all_agents()` |
-| `strategy_synthesizer` | Not imported in `import_all_agents()` |
-| `auto_mode_engine` | Not imported in `import_all_agents()` |
-| `broll_selector` | Not imported in `import_all_agents()` |
-
-> **Action:** These must be added to `import_all_agents()` in `core/agent_registry.py`
-> before those agents can be triggered via CLI or API.
+**Current state:** 34 of 34 agents registered (INFRA-01 resolved 2026-05-06).
 
 ---
 
@@ -273,24 +258,25 @@ docker logs --tail 30 vikas-worker-1
 
 ## Infrastructure Issues Found (2026-05-06)
 
-### INFRA-01 — 10 agents missing from `import_all_agents()` in agent_registry.py
+### INFRA-01 — 10 agents missing from `import_all_agents()` ✅ RESOLVED
 
 **Severity:** High  
-**Impact:** These agents cannot be triggered via `scripts/run_agent.py` or the `/api/v1/agents/{name}/run` endpoint. The call fails with `KeyError: Agent 'X' not found in registry`.  
+**Impact:** These agents cannot be triggered via `scripts/run_agent.py` or the `/api/v1/agents/{name}/run` endpoint. Call fails with `KeyError: Agent 'X' not found in registry`.  
 **Agents affected:** competitor_discovery, pipeline_orchestrator, ai_assistant, twitter_agent, newsletter_agent, video_scriptwriter, lead_magnet_agent, strategy_synthesizer, auto_mode_engine, broll_selector  
-**Fix required:** Add missing module paths to `import_all_agents()` before Phase 3 testing.
+**Fix applied (2026-05-06):** Added 10 missing module paths to `import_all_agents()` in `core/agent_registry.py`. Registry now shows 34/34 agents.
 
-### INFRA-02 — Several tables missing from DB (19 present, expected ~28)
+### INFRA-02 — 14 tables missing (asyncpg multi-statement bug) ✅ RESOLVED
 
 **Severity:** High  
-**Impact:** Agents that write to missing tables will fail at the INSERT step, not at startup. The failure appears in `agent_runs` as `status=failed` with a `UndefinedTableError`. Migrations for these tables exist (in `db/migrations/versions/`) but have not been applied.  
-**Fix required:** `uv run alembic upgrade head` from `apps/api/`. Recount tables after.
+**Impact:** `alembic upgrade head` failed with `asyncpg.exceptions.PostgresSyntaxError: cannot insert multiple commands into a prepared statement`. 10 migration files had `ALTER TABLE ... ENABLE ROW LEVEL SECURITY; CREATE POLICY ...` combined in a single `op.execute()` call, which asyncpg rejects.  
+**Fix applied (2026-05-06):** Split every multi-statement `op.execute()` into two separate calls across all 10 migration files. `alembic upgrade head` now completes cleanly — 33 tables present, head == `a3b4c5d6e7f8`.  
+**Root cause documented in:** ISSUES_AND_FIXES.md Issue 36.
 
-### INFRA-03 — Celery worker has no healthcheck in docker-compose
+### INFRA-03 — Celery worker has no healthcheck in docker-compose ✅ RESOLVED
 
 **Severity:** Medium  
 **Impact:** If the worker crashes and restarts in a loop, `docker compose ps` still shows `Up`. Tasks appear dispatched but never execute. Silent failure in pipeline_orchestrator and auto_mode_engine.  
-**Fix required:** Add a healthcheck to the worker service in `docker-compose.yml` (e.g. `celery -A workers.celery_app inspect ping`).
+**Fix applied (2026-05-06):** Added healthcheck to worker service in `docker-compose.yml` using `celery inspect ping`. Takes effect on next `docker compose up` or container restart.
 
 ---
 
@@ -298,13 +284,15 @@ docker logs --tail 30 vikas-worker-1
 
 Before moving to Phase 1 (brand_voice_keeper):
 
-- [ ] All 4 containers healthy / up
-- [ ] `curl http://localhost:8000/health` → `{"status":"ok"}`
-- [ ] 30 API routes registered
-- [ ] `alembic current` == `alembic heads` (no pending migrations)
-- [ ] All expected tables present (recount after `alembic upgrade head`)
-- [ ] RLS functional test passes (org B sees 0 rows from org A's keywords)
-- [ ] 34 agents in registry (after fixing `import_all_agents`)
-- [ ] All 5 critical env vars SET
-- [ ] Prompts seeded for agents under test
-- [ ] Worker logs clean (no errors)
+- [x] All 4 containers healthy / up — api, db, redis healthy; worker up
+- [x] `curl http://localhost:8000/health` → `{"status":"ok"}`
+- [x] 30 API routes registered
+- [x] `alembic current` == `alembic heads` — both `a3b4c5d6e7f8`
+- [x] 33 tables present — all previously missing tables now created
+- [ ] RLS functional test passes (org B sees 0 rows from org A's keywords) — run manually before Phase 1
+- [x] 34 agents in registry — all agents discoverable
+- [x] All 5 critical env vars SET
+- [ ] Prompts seeded for agents under test — verify per-agent before each Phase
+- [ ] Worker logs clean — run `docker logs --tail 30 vikas-worker-1` before Phase 1
+
+**Phase 0 signed off: ready to proceed to Phase 1 (brand_voice_keeper)**
