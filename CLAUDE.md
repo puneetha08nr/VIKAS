@@ -378,6 +378,49 @@ Indexes on `agent_name`, `run_at`, and `(agent_name, eval_type)` for trend queri
 
 ---
 
+## CI Pre-Commit Checklist
+
+CI runs three jobs: **lint** (`ruff check apps/api`), **type check** (`pyright apps/api`), **unit tests**. Run all three locally before pushing. A push that breaks CI blocks everyone.
+
+```bash
+# 1. Lint — must show "All checks passed!"
+uv run ruff check apps/api/
+
+# 2. Auto-fix what ruff can (import sort, unused imports) — STAGE THE RESULT
+uv run ruff check apps/api/ --fix
+git add -p   # review and stage the auto-fixed changes — do NOT skip this step
+
+# 3. Type check — must show "0 errors"
+pyright apps/api/
+
+# 4. Unit tests
+uv run pytest tests/unit/ -q
+```
+
+### Rules that have burned us before
+
+**Ruff (lint)**
+
+- **E501 line > 100 chars** — break long strings across lines. SQL strings: split between implicit string literals. `logger.warning(...)`: move the message to its own line. List comprehensions: expand to multi-line. Target: every line ≤ 100 chars.
+- **ASYNC240 `pathlib.Path` method in async function** — only `.mkdir()`, `.read_bytes()`, `.write_bytes()`, `.open()` are flagged (actual I/O). Pure property accesses (`.suffix`, `.name`, `.stem`) and path joining (`/`) are safe — do NOT convert those to `anyio.Path`. For the I/O calls, use `await anyio.Path(p).mkdir(...)` etc. **Critical**: `anyio.Path` is NOT a subclass of `pathlib.Path`. If a function returns `Path`, do not return `anyio.Path` — pyright will flag it (see type check rules below).
+- **F401 unused import** — ruff `--fix` removes these automatically; make sure to stage and commit the result.
+- **I001 unsorted imports** — ruff `--fix` sorts these automatically; same — stage and commit.
+- **Always run `--fix` and commit its output** — running `--fix` locally but not staging the changes means CI still sees the unfixed code.
+
+**Pyright (type check)**
+
+- **`anyio.Path` ≠ `pathlib.Path`** — `anyio.Path` does not inherit from `pathlib.Path`. If a function is annotated `-> Path`, returning `anyio.Path` is a type error. Fix: only call `anyio.Path(p).mkdir()` inline for the I/O operation; keep the rest of the variable as `pathlib.Path`.
+- **Abstract methods must be implemented** — if a class inherits from an ABC (e.g. `BaseIntegration`), every `@abstractmethod` must have a concrete implementation. Pyright flags instantiation of a class with unimplemented abstract methods (`reportAbstractUsage`). Missing: `get_credentials()` in integrations that only need `health_check`. Add a stub that returns `{}`.
+- **`Mapped[dict]` vs `Mapped[list]`** — SQLAlchemy columns with `server_default="'[]'::jsonb"` (JSON arrays) must be typed `Mapped[list]`, not `Mapped[dict]`. Assigning a `list[str]` to a `Mapped[dict]` column is a type error.
+- **`reportMissingImports`** — any `import X` in the codebase must be in `apps/api/pyproject.toml` dependencies. Lazy imports inside functions (e.g. `def _read_pdf(): import pypdf`) are still checked by pyright. Add the package to `pyproject.toml` in the same commit that adds the import.
+
+**Dependency hygiene**
+
+- When adding a new `import` for a third-party package, add the package to `apps/api/pyproject.toml` `[project] dependencies` in the **same commit**. No exceptions — pyright in CI installs from that manifest and will fail with `reportMissingImports` otherwise.
+- Common packages that have been missing before: `pypdf`, `python-docx` (imported as `docx`), `anyio`.
+
+---
+
 ## Coding Conventions
 
 ### Python (backend)

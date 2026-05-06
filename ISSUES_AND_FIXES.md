@@ -429,3 +429,85 @@ from rag.embeddings import EmbeddingGenerator  # must be module-level for patch(
 **Rule:** Every JSONB column in an INSERT/UPDATE statement must use `CAST(:param AS jsonb)` when binding via named parameters in asyncpg.
 
 ---
+
+## CI / GitHub Actions
+
+### Issue 32 — ruff auto-fix changes not committed; CI saw unfixed code
+
+**Symptom:** CI lint job failed with E501/I001/F401 errors after `uv run ruff check apps/api/` passed locally.
+
+**Root cause:** Running `uv run ruff check apps/api/ --fix` locally fixed the files on disk but those changes were never staged or committed. The local working tree showed "all checks passed" because the fixed files were present. CI checked out the last committed version, which still had the original unfixed code.
+
+**Fix:** After running `ruff --fix`, always run `git add -p` (or `git status` + `git add`) to stage the auto-fixed files, then commit them before pushing.
+
+**Rule:** `ruff --fix` modifies files in-place. Check `git status` after running it. If modified files appear, they must be staged and committed. Never push after `ruff --fix` without first verifying `git status` shows nothing unstaged.
+
+---
+
+### Issue 33 — `anyio.Path` return type breaks pyright: not a subclass of `pathlib.Path`
+
+**Symptom:** After replacing `pathlib.Path.mkdir()` with `await anyio.Path(...).mkdir()` to fix ASYNC240, pyright reported: `"anyio._core._fileio.Path" is not assignable to "pathlib.Path" (reportReturnType)` on the `return dest` line.
+
+**Root cause:** ASYNC240 flags `pathlib.Path` methods that perform blocking I/O (`.mkdir()`, `.open()`, `.read_bytes()`, `.write_bytes()`). The fix was incorrectly applied to pure string operations too: `suffix = anyio.Path(video.filename).suffix` and `dest = anyio.Path(_UPLOAD_DIR) / f"{job_id}{suffix}"`. This made `dest` an `anyio.Path`, which is NOT a subclass of `pathlib.Path` (its MRO is `anyio.Path → object`). The function was annotated `-> Path` (pathlib), so pyright rejected the return.
+
+**Fix:** Only wrap the specific I/O call in `anyio.Path`:
+```python
+await anyio.Path(_UPLOAD_DIR).mkdir(parents=True, exist_ok=True)   # ← anyio, async I/O
+suffix = Path(video.filename or "video.mp4").suffix or ".mp4"       # ← pathlib, pure string op
+dest = _UPLOAD_DIR / f"{job_id}{suffix}"                            # ← pathlib, pure path op
+```
+
+**Rule:** ASYNC240 only applies to I/O methods (`.mkdir`, `.open`, `.read_*`, `.write_*`). Property accesses (`.suffix`, `.name`) and path arithmetic (`/`) are safe to call on `pathlib.Path` in async functions. Do NOT convert these to `anyio.Path` — it changes the type and breaks return type annotations.
+
+---
+
+### Issue 34 — `WordPressIntegration` could not be instantiated: missing abstract method
+
+**Symptom:** `pyright apps/api/` reported: `Cannot instantiate abstract class "WordPressIntegration"` on the line `return WordPressIntegration(site_url=..., username=..., app_password=...)`.
+
+**Root cause:** `BaseIntegration` (in `integrations/base.py`) declares two abstract methods: `health_check()` and `get_credentials()`. `WordPressIntegration` implemented `health_check()` but not `get_credentials()`. Any class with an unimplemented `@abstractmethod` is treated as abstract by both Python and pyright — it cannot be instantiated.
+
+**Fix:** Added a stub implementation to `WordPressIntegration`:
+```python
+async def get_credentials(self, org_id: str, db: Any) -> dict:
+    return {}
+```
+WordPress credentials come from env vars, not the DB, so the stub correctly returns an empty dict (same pattern as `SlackWebhookIntegration`).
+
+**Rule:** Every concrete subclass of `BaseIntegration` must implement ALL abstract methods: `health_check()` AND `get_credentials()`. When adding a new integration, implement both even if `get_credentials` is a no-op stub.
+
+---
+
+### Issue 35 — `Mapped[dict]` on JSONB array column caused pyright assignment error
+
+**Symptom:** pyright reported: `Type "list[str]" is not assignable to type "SQLCoreOperations[dict] | dict"` when setting `bv.vocabulary = body.vocabulary` in the brand voice update endpoint.
+
+**Root cause:** `BrandVoice.vocabulary` and `BrandVoice.banned_phrases` were declared `Mapped[dict]` in the ORM model, but their `server_default` is `'[]'::jsonb` (a JSON array, not an object). The API body schema correctly types them as `list[str]`. The mismatch was in the model: `dict` (JSON object) vs `list` (JSON array).
+
+**Fix:** Changed the ORM column type annotations from `Mapped[dict]` to `Mapped[list]`:
+```python
+vocabulary: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::jsonb"), ...)
+banned_phrases: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::jsonb"), ...)
+```
+
+**Rule:** Match the `Mapped[...]` type to the actual JSON shape stored in the column. `'[]'::jsonb` default → `Mapped[list]`. `'{}'::jsonb` default → `Mapped[dict]`. A mismatch is invisible at runtime (PostgreSQL accepts both) but pyright catches it at type-check time.
+
+---
+
+### Issue 36 — `pypdf` and `python-docx` missing from `pyproject.toml`; pyright `reportMissingImports`
+
+**Symptom:** CI type-check failed: `Import "pypdf" could not be resolved` and `Import "docx" could not be resolved` in `document_ingester.py`.
+
+**Root cause:** `document_ingester.py` imports `pypdf` and `docx` (from `python-docx`) inside helper functions as lazy imports. They were installed in the local dev environment but never added to `apps/api/pyproject.toml`. CI installs dependencies from `pyproject.toml` (`pip install -e apps/api`), so the packages were absent and pyright couldn't resolve the imports.
+
+**Fix:** Added to `apps/api/pyproject.toml` `[project] dependencies`:
+```toml
+"pypdf>=4.0.0",
+"python-docx>=1.1.0",
+"anyio>=4.4.0",
+```
+(`anyio` was already a transitive dependency via FastAPI/Starlette but added explicitly since `video_upload.py` uses it directly.)
+
+**Rule:** Any `import X` in the codebase — including lazy imports inside functions — must have the corresponding package in `apps/api/pyproject.toml`. Add the dependency in the **same commit** as the import. Never rely on transitive installs for packages you import directly.
+
+---
