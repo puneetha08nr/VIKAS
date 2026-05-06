@@ -494,6 +494,18 @@ banned_phrases: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::j
 
 ---
 
+### Issue 37 — `python-multipart` missing; FastAPI crashes at startup on any file/form endpoint
+
+**Symptom:** `RuntimeError: Form data requires "python-multipart" to be installed` — API container starts uvicorn but crashes immediately when FastAPI tries to register any route that uses `UploadFile`, `File()`, or `Form()`.
+
+**Root cause:** FastAPI does not bundle a multipart parser. It calls `ensure_multipart_is_installed()` at route registration time (not at request time), so the error happens on startup, not on the first upload request. `python-multipart` was not in `apps/api/pyproject.toml` or `Dockerfile.api`.
+
+**Fix:** Added `"python-multipart>=0.0.9"` to both `apps/api/pyproject.toml` and the `uv pip install` list in `infra/docker/Dockerfile.api`. Rebuilt and restarted the container.
+
+**Rule:** Any FastAPI app with `UploadFile`, `File()`, or `Form()` parameters requires `python-multipart`. Add it when writing the first such endpoint. Also note: the Dockerfile has a hardcoded install list separate from `pyproject.toml` — keep them in sync whenever adding a new dependency to either.
+
+---
+
 ### Issue 36 — `pypdf` and `python-docx` missing from `pyproject.toml`; pyright `reportMissingImports`
 
 **Symptom:** CI type-check failed: `Import "pypdf" could not be resolved` and `Import "docx" could not be resolved` in `document_ingester.py`.
