@@ -43,7 +43,13 @@ class WordPressPublisherAgent(BaseAgent):
 
         wp = _build_integration(ctx)
         if wp is None:
-            return AgentResult(status="failed", error="WordPress integration not configured — set WORDPRESS_URL, WORDPRESS_USERNAME, WORDPRESS_APP_PASSWORD")
+            return AgentResult(
+                status="failed",
+                error=(
+                    "WordPress integration not configured — "
+                    "set WORDPRESS_URL, WORDPRESS_USERNAME, WORDPRESS_APP_PASSWORD"
+                ),
+            )
 
         try:
             post = await wp.create_post(

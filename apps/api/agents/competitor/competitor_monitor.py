@@ -37,7 +37,10 @@ class CompetitorMonitorAgent(BaseAgent):
                     "competitors_monitored": 0,
                     "total": 0,
                     "results": [],
-                    "message": "No competitor domains found. Pass 'competitors' param or seed the competitors table.",
+                    "message": (
+                        "No competitor domains found. "
+                        "Pass 'competitors' param or seed the competitors table."
+                    ),
                 },
             )
 

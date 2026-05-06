@@ -69,7 +69,11 @@ class PreferenceLearnerAgent(BaseAgent):
             notes = str(row[3]).strip() if row[3] else ""
 
             if action not in _VALID_ACTIONS:
-                logger.warning("preference_learner: unknown action %r — skipping row %s", action, row_id)
+                logger.warning(
+                    "preference_learner: unknown action %r — skipping row %s",
+                    action,
+                    row_id,
+                )
                 continue
 
             buckets[content_type][action].append(notes)

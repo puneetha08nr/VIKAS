@@ -51,7 +51,8 @@ class StrategySynthesizerAgent(BaseAgent):
         await ctx.db.execute(
             text(
                 "INSERT INTO strategy_reports "
-                "  (id, org_id, opportunities_analyzed, recommendations, summary, status, created_at) "
+                "  (id, org_id, opportunities_analyzed, recommendations, "
+                "   summary, status, created_at) "
                 "VALUES "
                 "  (CAST(:id AS uuid), :org_id, :opportunities_analyzed, "
                 "   CAST(:recommendations AS jsonb), :summary, 'success', now())"

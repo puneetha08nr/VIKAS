@@ -38,7 +38,11 @@ class AIAssistantAgent(BaseAgent):
         chunks = await _retrieve_chunks(question, ctx.org_id, top_k, ctx.db)
 
         template = await PromptRegistry().get(self.name, ctx.db)
-        context_text = "\n\n".join(c["chunk_text"] for c in chunks) if chunks else "No relevant context found."
+        context_text = (
+            "\n\n".join(c["chunk_text"] for c in chunks)
+            if chunks
+            else "No relevant context found."
+        )
         prompt = (
             template
             .replace("QUESTION", question)
@@ -57,7 +61,7 @@ class AIAssistantAgent(BaseAgent):
 
 
 async def _retrieve_chunks(question: str, org_id: str, top_k: int, db) -> list[dict]:
-    """Retrieve relevant knowledge chunks by text similarity (simple ILIKE fallback without embedding)."""
+    """Retrieve relevant knowledge chunks by text similarity (ILIKE fallback, no embedding)."""
     try:
         result = await db.execute(
             text(

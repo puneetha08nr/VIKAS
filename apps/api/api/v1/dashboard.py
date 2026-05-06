@@ -100,7 +100,11 @@ async def list_articles(
         where += " AND status = :status"
         params["status"] = status
     result = await db.execute(
-        text(f"SELECT id, org_id, keyword, title, body_html, word_count, status, published_url, created_at FROM articles {where} ORDER BY created_at DESC LIMIT :limit"),
+        text(
+            "SELECT id, org_id, keyword, title, body_html, word_count, "
+            f"status, published_url, created_at FROM articles {where} "
+            "ORDER BY created_at DESC LIMIT :limit"
+        ),
         params,
     )
     rows = result.fetchall()
@@ -149,7 +153,10 @@ async def update_article(
         raise HTTPException(status_code=400, detail="No fields to update")
 
     await db.execute(
-        text(f"UPDATE articles SET {', '.join(sets)} WHERE id = CAST(:id AS uuid) AND org_id = :org_id"),
+        text(
+            f"UPDATE articles SET {', '.join(sets)} "
+            "WHERE id = CAST(:id AS uuid) AND org_id = :org_id"
+        ),
         params,
     )
     await db.commit()
@@ -171,7 +178,10 @@ async def list_linkedin_posts(
         where += " AND article_id = CAST(:article_id AS uuid)"
         params["article_id"] = article_id
     result = await db.execute(
-        text(f"SELECT id, article_id, content, hashtags, status, created_at FROM linkedin_posts {where} ORDER BY created_at DESC LIMIT :limit"),
+        text(
+            "SELECT id, article_id, content, hashtags, status, created_at "
+            f"FROM linkedin_posts {where} ORDER BY created_at DESC LIMIT :limit"
+        ),
         params,
     )
     rows = result.fetchall()
@@ -203,7 +213,10 @@ async def list_twitter_threads(
         where += " AND article_id = CAST(:article_id AS uuid)"
         params["article_id"] = article_id
     result = await db.execute(
-        text(f"SELECT id, article_id, tweets, status, created_at FROM twitter_threads {where} ORDER BY created_at DESC LIMIT :limit"),
+        text(
+            "SELECT id, article_id, tweets, status, created_at "
+            f"FROM twitter_threads {where} ORDER BY created_at DESC LIMIT :limit"
+        ),
         params,
     )
     rows = result.fetchall()
@@ -235,7 +248,11 @@ async def list_newsletters(
         where += " AND article_id = CAST(:article_id AS uuid)"
         params["article_id"] = article_id
     result = await db.execute(
-        text(f"SELECT id, article_id, subject, preview_text, body_html, status, created_at FROM newsletters {where} ORDER BY created_at DESC LIMIT :limit"),
+        text(
+            "SELECT id, article_id, subject, preview_text, body_html, "
+            f"status, created_at FROM newsletters {where} "
+            "ORDER BY created_at DESC LIMIT :limit"
+        ),
         params,
     )
     rows = result.fetchall()

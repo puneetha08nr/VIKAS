@@ -39,8 +39,6 @@ class DocumentIngesterAgent(BaseAgent):
     async def execute(self, ctx: AgentContext) -> AgentResult:
         file_path = str(ctx.params.get("file_path", "")).strip()
         source_name = str(ctx.params.get("source_name", "")).strip()
-        chunk_size = int(ctx.params.get("chunk_size", 500))
-
         if not file_path:
             return AgentResult(status="failed", error="file_path param is required")
 
@@ -95,7 +93,10 @@ class DocumentIngesterAgent(BaseAgent):
                     "org_id": ctx.org_id,
                     "source_doc": source_name,
                     "chunk_text": chunk_text,
-                    "meta": f'{{"chunk_index": {chunk.get("chunk_index", 0)}, "token_count": {chunk.get("token_count", 0)}}}',
+                    "meta": (
+                        f'{{"chunk_index": {chunk.get("chunk_index", 0)}, '
+                        f'"token_count": {chunk.get("token_count", 0)}}}'
+                    ),
                 },
             )
             chunks_created += 1

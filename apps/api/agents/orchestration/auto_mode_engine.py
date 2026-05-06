@@ -14,7 +14,7 @@ import logging
 from sqlalchemy import text
 
 from core.agent_base import AgentContext, AgentResult, BaseAgent
-from core.agent_registry import register, REGISTRY
+from core.agent_registry import REGISTRY, register
 from core.contracts import AutoModeEngineOutput
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,11 @@ class AutoModeEngineAgent(BaseAgent):
             if result.status != "failed":
                 triggered += 1
             else:
-                logger.warning("auto_mode_engine: pipeline failed for opp %s: %s", opp["opportunity_id"], result.error)
+                logger.warning(
+                    "auto_mode_engine: pipeline failed for opp %s: %s",
+                    opp["opportunity_id"],
+                    result.error,
+                )
 
         output = AutoModeEngineOutput(
             opportunities_selected=len(opportunities),
@@ -70,7 +74,10 @@ async def _select_opportunities(org_id: str, limit: int, db) -> list[dict]:
             {"org_id": org_id, "limit": limit},
         )
         rows = result.fetchall()
-        return [{"opportunity_id": str(row[0]), "composite_score": float(row[1] or 0)} for row in rows]
+        return [
+            {"opportunity_id": str(row[0]), "composite_score": float(row[1] or 0)}
+            for row in rows
+        ]
     except Exception:
         logger.warning("auto_mode_engine: failed to load opportunities")
         return []
@@ -90,5 +97,8 @@ async def _run_pipeline(ctx: AgentContext, opportunity_id: str) -> AgentResult:
     try:
         return await REGISTRY["pipeline_orchestrator"]().execute(sub_ctx)
     except Exception as exc:
-        logger.exception("auto_mode_engine: pipeline_orchestrator raised for opp %s", opportunity_id)
+        logger.exception(
+            "auto_mode_engine: pipeline_orchestrator raised for opp %s",
+            opportunity_id,
+        )
         return AgentResult(status="failed", error=str(exc))

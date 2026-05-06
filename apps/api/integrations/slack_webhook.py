@@ -39,7 +39,9 @@ class SlackWebhookIntegration(BaseIntegration):
         error, non-2xx). Never raises.
         """
         if not self._webhook_url:
-            logger.warning("slack_webhook: SLACK_WEBHOOK_URL not configured — skipping notification")
+            logger.warning(
+                "slack_webhook: SLACK_WEBHOOK_URL not configured — skipping notification"
+            )
             return False
 
         if self._circuit.is_open():

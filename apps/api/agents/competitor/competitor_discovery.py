@@ -69,7 +69,11 @@ def _parse_domains(raw: str) -> list[str]:
         clean = raw.strip().lstrip("```json").lstrip("```").rstrip("```")
         parsed = json.loads(clean)
         if isinstance(parsed, list):
-            return [str(d.get("domain", d) if isinstance(d, dict) else d).strip() for d in parsed if d]
+            return [
+                str(d.get("domain", d) if isinstance(d, dict) else d).strip()
+                for d in parsed
+                if d
+            ]
     except Exception:
         pass
     # Fallback: one domain per line

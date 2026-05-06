@@ -5,7 +5,7 @@ Logs pipeline progress to pipeline_runs table.
 
 Input params:
   opportunity_id (str, required)
-  auto_publish   (bool, optional — if true, publish to WordPress after content is created, default: false)
+  auto_publish   (bool, optional — publish to WordPress after content is created, default: false)
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ import uuid
 from sqlalchemy import text
 
 from core.agent_base import AgentContext, AgentResult, BaseAgent
-from core.agent_registry import register, REGISTRY
+from core.agent_registry import REGISTRY, register
 from core.contracts import PipelineOrchestratorOutput
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,10 @@ class PipelineOrchestratorAgent(BaseAgent):
             )
             if wp_result.status == "failed":
                 stages_failed += 1
-                logger.warning("pipeline_orchestrator: wordpress_publisher failed: %s", wp_result.error)
+                logger.warning(
+                    "pipeline_orchestrator: wordpress_publisher failed: %s",
+                    wp_result.error,
+                )
             else:
                 stages_completed += 1
 

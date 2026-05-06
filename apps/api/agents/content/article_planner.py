@@ -75,7 +75,8 @@ class ArticlePlannerAgent(BaseAgent):
             text(
                 "INSERT INTO article_plans "
                 "  (id, org_id, opportunity_id, keyword, title, meta_description, "
-                "   outline, word_count_target, content_angle, cta, status, created_at, updated_at) "
+                "   outline, word_count_target, content_angle, cta, "
+                "   status, created_at, updated_at) "
                 "VALUES "
                 "  (CAST(:id AS uuid), :org_id, CAST(:opp_id AS uuid), :keyword, :title, "
                 "   :meta_desc, CAST(:outline AS jsonb), :word_count, :angle, :cta, "

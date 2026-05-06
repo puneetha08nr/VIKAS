@@ -14,6 +14,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
+import anyio
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -141,9 +142,9 @@ async def _fetch_job(upload_token: str, db: AsyncSession) -> dict:
 
 
 async def _save_upload(video: UploadFile, job_id: str) -> Path:
-    _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    suffix = Path(video.filename or "video.mp4").suffix or ".mp4"
-    dest = _UPLOAD_DIR / f"{job_id}{suffix}"
+    await anyio.Path(_UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+    suffix = anyio.Path(video.filename or "video.mp4").suffix or ".mp4"
+    dest = anyio.Path(_UPLOAD_DIR) / f"{job_id}{suffix}"
     content = await video.read()
     if len(content) > _MAX_FILE_BYTES:
         raise HTTPException(

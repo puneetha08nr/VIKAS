@@ -205,8 +205,11 @@ async def _save_topics(
     for t in topics:
         await db.execute(
             text(
-                "INSERT INTO topics (id, org_id, topic, source, score, related_keywords, detected_at) "
-                "VALUES (gen_random_uuid(), :org_id, :topic, :source, :score, CAST(:keywords AS jsonb), now())"
+                "INSERT INTO topics "
+                "  (id, org_id, topic, source, score, related_keywords, detected_at) "
+                "VALUES "
+                "  (gen_random_uuid(), :org_id, :topic, :source, :score, "
+                "   CAST(:keywords AS jsonb), now())"
             ),
             {
                 "org_id": org_id,

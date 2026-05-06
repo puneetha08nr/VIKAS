@@ -86,7 +86,12 @@ async def _load_article(article_id: str, org_id: str, db) -> dict | None:
     row = result.fetchone()
     if not row:
         return None
-    return {"id": str(row[0]), "keyword": row[1] or "", "title": row[2] or "", "body_html": row[3] or ""}
+    return {
+        "id": str(row[0]),
+        "keyword": row[1] or "",
+        "title": row[2] or "",
+        "body_html": row[3] or "",
+    }
 
 
 def _parse_post(raw: str) -> dict:
