@@ -30,6 +30,9 @@ class WordPressIntegration(BaseIntegration):
         except Exception:
             return False
 
+    async def get_credentials(self, org_id: str, db: Any) -> dict:
+        return {}
+
     async def create_post(
         self,
         title: str,

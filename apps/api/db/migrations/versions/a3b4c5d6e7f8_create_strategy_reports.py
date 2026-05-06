@@ -5,6 +5,7 @@ Revises: f2a3b4c5d6e7
 Create Date: 2026-05-05
 """
 from collections.abc import Sequence
+
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql

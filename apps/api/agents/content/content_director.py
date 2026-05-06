@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 
 from core.agent_base import AgentContext, AgentResult, BaseAgent
-from core.agent_registry import register, REGISTRY
+from core.agent_registry import REGISTRY, register
 from core.contracts import ContentDirectorOutput
 
 logger = logging.getLogger(__name__)

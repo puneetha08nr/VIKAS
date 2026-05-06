@@ -21,10 +21,10 @@ class BrandVoice(Base):
         nullable=False,
     )
     tone: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-    vocabulary: Mapped[dict] = mapped_column(
+    vocabulary: Mapped[list] = mapped_column(
         JSONB, server_default=text("'[]'::jsonb"), nullable=False
     )
-    banned_phrases: Mapped[dict] = mapped_column(
+    banned_phrases: Mapped[list] = mapped_column(
         JSONB, server_default=text("'[]'::jsonb"), nullable=False
     )
     style_rules: Mapped[dict] = mapped_column(
