@@ -1,0 +1,17 @@
+#!/bin/sh
+# Mirrors the three CI jobs. Blocks push if any check fails.
+set -e
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+echo "→ ruff lint..."
+uv run --directory apps/api ruff check apps/api/
+
+echo "→ pyright type check..."
+uv run --directory apps/api pyright apps/api/
+
+echo "→ unit tests..."
+uv run --directory apps/api pytest tests/unit/ -q --tb=short
+
+echo "✓ All checks passed — pushing."
