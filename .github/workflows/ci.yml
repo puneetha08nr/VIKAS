@@ -19,6 +19,10 @@ jobs:
         with:
           enable-caching: true
 
+      - name: Install dependencies
+        working-directory: apps/api
+        run: uv sync
+
       - name: Lint
         working-directory: apps/api
         run: uv run ruff check .
