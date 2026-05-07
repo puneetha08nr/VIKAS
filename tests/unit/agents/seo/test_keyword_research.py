@@ -145,45 +145,60 @@ async def test_empty_dataforseo_response_returns_partial_status(
     assert result.data["keywords_found"] == 0
 
 
-# ── Integration error ─────────────────────────────────────────────────────────
+# ── Integration error — fallback to pending state ─────────────────────────────
 
-async def test_dataforseo_error_results_in_failed_status(ctx: AgentContext) -> None:
-    with patch(
-        "agents.seo.keyword_research.DataForSEOIntegration",
-        **{
-            "return_value.get_keyword_ideas": AsyncMock(
-                side_effect=IntegrationError(
-                    "Credentials not configured",
-                    status_code=None,
-                    integration_name="dataforseo",
+async def test_dataforseo_error_saves_keywords_as_pending(ctx: AgentContext) -> None:
+    """When DataForSEO raises IntegrationError (including 403), agent saves
+    keywords with data_source='pending' and returns partial (not failed)."""
+    with (
+        patch(
+            "agents.seo.keyword_research.DataForSEOIntegration",
+            **{
+                "return_value.get_keyword_ideas": AsyncMock(
+                    side_effect=IntegrationError(
+                        "Credentials not configured",
+                        status_code=None,
+                        integration_name="dataforseo",
+                    )
                 )
-            )
-        },
+            },
+        ),
+        patch(
+            "agents.seo.keyword_research._get_google_suggestions",
+            new=AsyncMock(return_value=["ai tools", "marketing ai", "ai content"]),
+        ),
     ):
         result = await KeywordResearchAgent().run(ctx)
 
-    assert result.status == "failed"
-    assert result.error is not None
-    assert len(result.error) > 10
+    assert result.status == "success"
+    assert result.data.get("data_source") == "pending"
+    assert result.error is None
 
 
-async def test_dataforseo_error_message_is_descriptive(ctx: AgentContext) -> None:
-    with patch(
-        "agents.seo.keyword_research.DataForSEOIntegration",
-        **{
-            "return_value.get_keyword_ideas": AsyncMock(
-                side_effect=IntegrationError(
-                    "Credentials not configured",
-                    status_code=None,
-                    integration_name="dataforseo",
+async def test_dataforseo_403_saves_keywords_as_pending(ctx: AgentContext) -> None:
+    """403 Forbidden (zero balance) must not cause status=failed — saves as pending."""
+    with (
+        patch(
+            "agents.seo.keyword_research.DataForSEOIntegration",
+            **{
+                "return_value.get_keyword_ideas": AsyncMock(
+                    side_effect=IntegrationError(
+                        "HTTP 403: Forbidden",
+                        status_code=403,
+                        integration_name="dataforseo",
+                    )
                 )
-            )
-        },
+            },
+        ),
+        patch(
+            "agents.seo.keyword_research._get_google_suggestions",
+            new=AsyncMock(return_value=["ai tools", "marketing ai"]),
+        ),
     ):
         result = await KeywordResearchAgent().run(ctx)
 
-    assert result.error is not None
-    assert "DataForSEO" in result.error or "dataforseo" in result.error.lower()
+    assert result.status == "success"
+    assert result.data.get("data_source") == "pending"
 
 
 # ── Missing seed keyword ──────────────────────────────────────────────────────

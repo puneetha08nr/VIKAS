@@ -9,6 +9,7 @@ import type {
   Competitor,
   CompetitorContent,
   KeywordDetail,
+  KeywordPage,
   KeywordRow,
   KeywordStats,
   LinkedInPost,
@@ -38,6 +39,24 @@ axiosInstance.interceptors.request.use(async (config) => {
   return config;
 });
 
+// Surface FastAPI `detail` field as the Error message so UI can show it directly.
+axiosInstance.interceptors.response.use(
+  (r) => r,
+  (err: unknown) => {
+    if (
+      axios.isAxiosError(err) &&
+      err.response?.data &&
+      typeof err.response.data === "object" &&
+      "detail" in err.response.data
+    ) {
+      const detail = err.response.data.detail;
+      const msg = typeof detail === "string" ? detail : JSON.stringify(detail);
+      return Promise.reject(new Error(msg));
+    }
+    return Promise.reject(err);
+  }
+);
+
 // ── Legacy function exports (kept for backward compat) ────────────────────────
 
 export interface AgentRunResponse {
@@ -61,6 +80,7 @@ export interface AgentRunStatus {
 // Re-export types for pages that import them from here
 export type {
   KeywordRow,
+  KeywordPage,
   KeywordStats,
   AgentRun,
   KeywordDetail,
@@ -119,14 +139,29 @@ export async function runKeywordResearch(
 
 export const api = {
   keywords: {
-    list: (params?: { status?: string; intent?: string; limit?: number }) => {
-      const p: Record<string, string> = {};
-      if (params?.status) p.status = params.status;
-      if (params?.intent) p.intent = params.intent;
-      if (params?.limit) p.limit = String(params.limit);
+    list: (params?: {
+      status?: string
+      intent?: string
+      data_source?: string
+      search?: string
+      sort?: string
+      order?: string
+      limit?: number
+      offset?: number
+    }) => {
+      const p: Record<string, string> = {}
+      if (params?.status && params.status !== "all") p.status = params.status
+      if (params?.intent && params.intent !== "all") p.intent = params.intent
+      if (params?.data_source && params.data_source !== "all")
+        p.data_source = params.data_source
+      if (params?.search) p.search = params.search
+      if (params?.sort) p.sort = params.sort
+      if (params?.order) p.order = params.order
+      if (params?.limit != null) p.limit = String(params.limit)
+      if (params?.offset != null) p.offset = String(params.offset)
       return axiosInstance
-        .get<KeywordRow[]>("/api/v1/keywords", { params: p })
-        .then((r) => r.data);
+        .get<KeywordPage>("/api/v1/keywords", { params: p })
+        .then((r) => r.data)
     },
 
     stats: () =>
@@ -158,6 +193,11 @@ export const api = {
     detail: (id: string) =>
       axiosInstance
         .get<KeywordDetail>(`/api/v1/keywords/${id}/detail`)
+        .then((r) => r.data),
+
+    fetchMetrics: () =>
+      axiosInstance
+        .post<{ updated: number; message?: string }>("/api/v1/keywords/fetch-metrics")
         .then((r) => r.data),
   },
 

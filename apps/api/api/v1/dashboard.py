@@ -16,6 +16,9 @@ Provides REST endpoints for all dashboard pages that don't have dedicated module
 """
 from __future__ import annotations
 
+import asyncio
+import re
+import socket
 import uuid
 from datetime import UTC, datetime
 
@@ -62,7 +65,7 @@ async def list_opportunities(
     kw_map: dict[str, str] = {}
     if kw_ids:
         kw_result = await db.execute(
-            text("SELECT id::text, keyword FROM keywords WHERE id = ANY(:ids::uuid[])"),
+            text("SELECT id::text, keyword FROM keywords WHERE id::text = ANY(:ids)"),
             {"ids": kw_ids},
         )
         kw_map = {r[0]: r[1] for r in kw_result.fetchall()}
@@ -291,6 +294,31 @@ async def list_competitors(
     ]
 
 
+_DOMAIN_RE = re.compile(
+    r"^(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$"
+)
+
+
+def _normalise_domain(raw: str) -> str:
+    return (
+        raw.strip()
+        .lower()
+        .removeprefix("https://")
+        .removeprefix("http://")
+        .removeprefix("www.")
+        .split("/")[0]
+    )
+
+
+async def _domain_resolves(domain: str) -> bool:
+    loop = asyncio.get_event_loop()
+    try:
+        await loop.getaddrinfo(domain, None)
+        return True
+    except socket.gaierror:
+        return False
+
+
 class AddCompetitorBody(BaseModel):
     domain: str
 
@@ -301,12 +329,23 @@ async def add_competitor(
     org: Organization = Depends(get_current_org),
     db: AsyncSession = Depends(get_db_for_org),
 ) -> dict:
-    domain = body.domain.strip().lower().removeprefix("https://").removeprefix("http://").rstrip("/")
+    domain = _normalise_domain(body.domain)
     if not domain:
-        raise HTTPException(status_code=400, detail="domain is required")
+        raise HTTPException(status_code=422, detail="domain is required")
+    if not _DOMAIN_RE.match(domain):
+        raise HTTPException(status_code=422, detail=f"'{domain}' is not a valid domain name")
+    if not await _domain_resolves(domain):
+        raise HTTPException(
+            status_code=422,
+            detail=f"'{domain}' could not be resolved — check the domain and try again",
+        )
     comp = Competitor(org_id=org.id, domain=domain)
     db.add(comp)
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail=f"'{domain}' is already being tracked")
     await db.refresh(comp)
     return {"id": str(comp.id), "domain": comp.domain}
 

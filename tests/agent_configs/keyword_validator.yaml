@@ -1,10 +1,10 @@
 agent_name: keyword_validator
 tier: fast
-uses_llm: true
+uses_llm: false
 output_table: keywords
 has_rls: true
 external_dependency: dataforseo_optional
-skip_concurrent: true  # LLM cost
+skip_concurrent: false  # pure rules engine, no LLM
 
 happy_path_params:
   keyword_ids: []  # empty list — agent fetches raw keywords from DB itself
@@ -14,10 +14,10 @@ expected_min_rows: 0  # passes even if no raw keywords to validate
 idempotent: true
 
 api_read_endpoint: "GET /api/v1/keywords"
-api_write_endpoint: "POST /api/v1/keywords/validate-all"
+api_write_endpoint: "POST /api/v1/keywords/validate"
 api_agent_trigger: "POST /api/v1/agents/keyword_validator/run"
-api_write_body: {}
-api_invalid_body: '{"keyword_ids": "not-a-list"}'
+api_write_body: '{"keyword_ids": ["00000000-0000-0000-0000-000000000000"]}'
+api_invalid_body: '{"keyword_ids": ["not-a-uuid"]}'
 api_invalid_expected_status: 422
 
 expected_list_fields: []

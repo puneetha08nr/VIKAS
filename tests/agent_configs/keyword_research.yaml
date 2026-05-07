@@ -1,11 +1,11 @@
 agent_name: keyword_research
 tier: fast
-uses_llm: true
+uses_llm: false
 output_table: keywords
 has_rls: true
 external_dependency: dataforseo_optional
-# DataForSEO enriches results but agent falls back to LLM estimates without it.
-skip_concurrent: true  # LLM cost + DB concurrent upsert — skip for now
+# DataForSEO provides real metrics; fallback is Google Suggest with pending metrics (no LLM).
+skip_concurrent: false  # ON CONFLICT DO NOTHING makes concurrent upserts safe
 
 happy_path_params:
   seed_keyword: "ai marketing automation"

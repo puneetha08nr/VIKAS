@@ -21,7 +21,7 @@ class _KeywordMetricsMixin(BaseModel):
     volume: int | None = None
     kd: float | None = None
     cpc: float | None = None
-    data_source: str = "llm_estimate"
+    data_source: str = "pending"
 
     @field_validator("volume", mode="before")
     @classmethod

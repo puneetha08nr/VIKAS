@@ -180,17 +180,22 @@ def _run_agent_cmd(agent_name: str, params: dict) -> list[str]:
     ]
 
 
-def run_agent_once(agent_name: str, params: dict) -> tuple[bool, str]:
+def _run_timeout(config: dict) -> int:
+    """Agents that use an LLM get a longer timeout for the happy-path run."""
+    return 180 if config.get("uses_llm", False) else 60
+
+
+def run_agent_once(agent_name: str, params: dict, timeout: int = 60) -> tuple[bool, str]:
     """Returns (success, output_snippet)."""
     try:
         result = subprocess.run(
             _run_agent_cmd(agent_name, params),
-            capture_output=True, text=True, cwd=str(REPO_ROOT), timeout=60,
+            capture_output=True, text=True, cwd=str(REPO_ROOT), timeout=timeout,
         )
         output = result.stdout[-500:] + result.stderr[-200:]
         return result.returncode == 0, output
     except subprocess.TimeoutExpired:
-        return False, "TIMEOUT after 60s"
+        return False, f"TIMEOUT after {timeout}s"
     except Exception as exc:
         return False, str(exc)
 
@@ -282,6 +287,7 @@ async def check_concurrent(config: dict, agent_name: str) -> CheckResult:
 async def check_agent_runs(config: dict, agent_name: str) -> CheckResult:
     r = CheckResult("A7", "agent_runs row accuracy (status, duration, tokens)")
     uses_llm = config.get("uses_llm", False)
+    has_external_dep = config.get("external_dependency", "none") not in ("none", None, "")
     try:
         conn = await asyncpg.connect(DB_DSN)
         try:
@@ -299,9 +305,12 @@ async def check_agent_runs(config: dict, agent_name: str) -> CheckResult:
             r.detail = "No agent_runs row — agent never ran or BaseAgent.audit() failed"
             return r
 
+        # Agents with external HTTP dependencies may return 'partial' when some
+        # remote calls fail — that is valid behaviour, not an agent failure.
+        acceptable_statuses = {"success", "partial"} if has_external_dep else {"success"}
         issues = []
-        if row["status"] != "success":
-            issues.append(f"status={row['status']!r} (expected 'success')")
+        if row["status"] not in acceptable_statuses:
+            issues.append(f"status={row['status']!r} (expected one of {sorted(acceptable_statuses)})")
         if (row["duration_ms"] or 0) <= 0:
             issues.append(f"duration_ms={row['duration_ms']} (must be > 0)")
         if row["error"] is not None:
@@ -315,7 +324,7 @@ async def check_agent_runs(config: dict, agent_name: str) -> CheckResult:
         else:
             r.status = "PASS"
             r.detail = (
-                f"status=success, duration={row['duration_ms']}ms, "
+                f"status={row['status']}, duration={row['duration_ms']}ms, "
                 f"tokens_in={row['tokens_in']}, tokens_out={row['tokens_out']}, "
                 f"cost=${row['cost_usd']:.4f}, error=None"
             )
@@ -620,7 +629,7 @@ def main() -> None:
     print()
     print("Running happy-path CLI run (populates DB for subsequent checks)...")
     params = config.get("happy_path_params", {})
-    happy_ok, happy_snippet = run_agent_once(agent_name, params)
+    happy_ok, happy_snippet = run_agent_once(agent_name, params, timeout=_run_timeout(config))
     if happy_ok:
         print("  ✅ Succeeded")
     else:

@@ -1,9 +1,13 @@
 """
 keyword_research — SEO data provider driven, no LLM.
 
-Primary source: DataForSEO Keywords Ideas API
-Clustering:     Pure Python by intent
-Scoring:        Pure Python composite formula
+Metric sourcing (tiered — first success wins):
+  Tier 1: DataForSEO keywords ideas (Google Suggest + real metrics)
+  Tier 2: Keywords Everywhere (not yet built — skipped)
+  Tier 3: Anchor-Scale Estimator (DB anchors + PyTrends + Suggest count)
+  Tier 4: Pending (save with null metrics, true-up via /fetch-metrics)
+
+Design principle: pipeline never stops, confidence degrades gracefully.
 """
 import logging
 import uuid
@@ -13,8 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.agent_base import AgentContext, AgentResult, BaseAgent
 from core.agent_registry import register
-from integrations.base import IntegrationError
-from integrations.dataforseo import DataForSEOIntegration
+from integrations.anchor_scale_estimator import AnchorScaleEstimator
+from integrations.dataforseo import DataForSEOIntegration, _get_google_suggestions, _infer_intent
 
 logger = logging.getLogger(__name__)
 
@@ -37,29 +41,24 @@ class KeywordResearchAgent(BaseAgent):
 
         org_id = ctx.org_id
 
-        # ── Step 1: Fetch keyword ideas from DataForSEO ──────────────────────
-        integration = DataForSEOIntegration()
-
+        # ── Tier 1: DataForSEO ideas (Google Suggest + real metrics) ─────────
         try:
-            raw_keywords = await integration.get_keyword_ideas(
+            raw_keywords = await DataForSEOIntegration().get_keyword_ideas(
                 seed=seed,
                 org_id=org_id,
                 db=ctx.db,
             )
-        except IntegrationError as e:
-            logger.error("keyword_research: DataForSEO failed: %s", e)
-            return AgentResult(
-                status="failed",
-                data={},
-                tokens_used=0,
-                cost_usd=0.0,
-                error=(
-                    "DataForSEO credentials not configured or API call failed. "
-                    "Add DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD in "
-                    "Settings → Integrations. "
-                    f"Detail: {e}"
-                ),
+            for kw in raw_keywords:
+                kw.setdefault("data_source", "dataforseo")
+        except Exception as exc:
+            logger.warning(
+                "keyword_research: Tier 1 DataForSEO failed (%s: %s)"
+                " — falling through to Tiers 2-4",
+                type(exc).__name__, exc,
             )
+            suggestions = await _get_google_suggestions(seed) or [seed]
+            kw_texts = suggestions[:20]
+            raw_keywords = await _get_metrics(kw_texts, seed, ctx)
 
         if not raw_keywords:
             return AgentResult(
@@ -67,14 +66,13 @@ class KeywordResearchAgent(BaseAgent):
                 data={"keywords_found": 0, "seed": seed},
                 tokens_used=0,
                 cost_usd=0.0,
-                error="DataForSEO returned no keyword ideas for this seed",
+                error="No keyword ideas produced — all metric sources failed",
             )
 
-        # ── Step 2: Cluster by intent (pure Python) ───────────────────────────
+        # ── Cluster by intent (pure Python) ──────────────────────────────────
         clusters = _cluster_by_intent(raw_keywords)
-        # e.g. {"commercial": [...], "informational": [...]}
 
-        # ── Step 3: Write clusters + keywords to DB ───────────────────────────
+        # ── Write clusters + keywords to DB ───────────────────────────────────
         total_saved = 0
         for intent, keywords in clusters.items():
             if not keywords:
@@ -97,41 +95,88 @@ class KeywordResearchAgent(BaseAgent):
             )
             total_saved += saved
 
-        # ── Step 4: Priority score (pure Python) ──────────────────────────────
+        # ── Priority score ────────────────────────────────────────────────────
         await _score_keywords(org_id=org_id, run_id=ctx.run_id, db=ctx.db)
 
+        # Summarise data_source for result (most common among saved keywords)
+        ds_counts: dict[str, int] = {}
+        for kw in raw_keywords:
+            ds = kw.get("data_source", "pending")
+            ds_counts[ds] = ds_counts.get(ds, 0) + 1
+        primary_ds = max(ds_counts, key=lambda k: ds_counts[k]) if ds_counts else "pending"
+
         return AgentResult(
-            status="success",
+            status="success" if total_saved > 0 else "partial",
             data={
                 "keywords_found": total_saved,
                 "seed": seed,
                 "clusters": {k: len(v) for k, v in clusters.items()},
-                "data_source": "dataforseo",
+                "data_source": primary_ds,
             },
             tokens_used=0,
             cost_usd=0.0,
         )
 
 
+# ── Tiered metric sourcing ────────────────────────────────────────────────────
+
+async def _get_metrics(
+    keywords: list[str], seed: str, ctx: AgentContext
+) -> list[dict]:
+    """Get metrics for keyword texts. Tries Tiers 2-4 in order."""
+
+    # Tier 2 — Keywords Everywhere (not yet built)
+
+    # Tier 3 — Anchor-Scale Estimator
+    try:
+        estimates = await AnchorScaleEstimator().estimate_metrics(
+            keywords, seed, ctx.db
+        )
+        if estimates:
+            return [
+                {
+                    "keyword": e["keyword"],
+                    "volume": e.get("volume"),
+                    "kd": e.get("kd"),
+                    "cpc": e.get("cpc"),
+                    "intent": _infer_intent(e["keyword"]),
+                    "data_source": e.get("data_source", "pending"),
+                }
+                for e in estimates
+            ]
+    except Exception as exc:
+        logger.warning("keyword_research: Tier 3 Anchor-Scale failed: %s", exc)
+
+    # Tier 4 — Pending (never fails)
+    logger.warning(
+        "keyword_research: All metric sources failed for seed '%s'"
+        " — saving %d keywords as pending.",
+        seed, len(keywords),
+    )
+    return [
+        {
+            "keyword": kw,
+            "volume": None,
+            "kd": None,
+            "cpc": None,
+            "intent": _infer_intent(kw),
+            "data_source": "pending",
+        }
+        for kw in keywords
+    ]
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _cluster_by_intent(keywords: list[dict]) -> dict[str, list[dict]]:
-    """Group keywords by intent field. No LLM."""
     clusters: dict[str, list[dict]] = {}
     for kw in keywords:
         intent = (kw.get("intent") or "informational").lower().strip()
         clusters.setdefault(intent, []).append(kw)
-    # return only non-empty buckets
     return {k: v for k, v in clusters.items() if v}
 
 
 def _priority_score(volume: int, kd: float, intent: str) -> float:
-    """
-    Composite priority score — pure arithmetic.
-    Higher = more worth targeting.
-
-    Formula: (volume / 1000) * (10 - kd) * intent_multiplier
-    """
     multiplier = 2.0 if intent in ("commercial", "transactional") else 1.0
     return round((volume / 1000) * max(0.0, 10.0 - kd) * multiplier, 3)
 
@@ -163,18 +208,23 @@ async def _save_keywords(
     source_run_id: str,
     db: AsyncSession,
 ) -> int:
-    """Insert keywords. Returns count of rows actually inserted."""
+    """Insert keywords. Reads data_source from each keyword dict."""
     saved = 0
     for kw in keywords:
         keyword_text = str(kw.get("keyword") or "").strip()
         if not keyword_text:
             continue
 
-        volume = int(kw.get("volume") or 0)
-        kd = float(kw.get("kd") or 0.0)
-        cpc = float(kw.get("cpc") or 0.0)
+        volume = int(kw["volume"]) if kw.get("volume") is not None else None
+        kd = float(kw["kd"]) if kw.get("kd") is not None else None
+        cpc = float(kw["cpc"]) if kw.get("cpc") is not None else None
         intent = str(kw.get("intent") or "informational").lower().strip()
-        priority = _priority_score(volume, kd, intent)
+        data_source = str(kw.get("data_source") or "pending")
+        priority = (
+            _priority_score(volume, kd, intent)
+            if volume is not None and kd is not None
+            else None
+        )
 
         result = await db.execute(
             text(
@@ -185,8 +235,8 @@ async def _save_keywords(
                 "VALUES "
                 "(gen_random_uuid(), :org_id, :keyword, :volume, :kd, :cpc, "
                 " :intent, :cluster_id, 'raw', :source_agent, :source_run_id, "
-                " 'dataforseo', :priority_score, now(), now()) "
-                "ON CONFLICT DO NOTHING "
+                " :data_source, :priority_score, now(), now()) "
+                "ON CONFLICT (org_id, keyword) DO NOTHING "
                 "RETURNING id"
             ),
             {
@@ -199,6 +249,7 @@ async def _save_keywords(
                 "cluster_id": cluster_id,
                 "source_agent": source_agent,
                 "source_run_id": source_run_id,
+                "data_source": data_source,
                 "priority_score": priority,
             },
         )
@@ -210,11 +261,6 @@ async def _save_keywords(
 
 
 async def _score_keywords(org_id: str, run_id: str, db: AsyncSession) -> None:
-    """
-    Update priority_score for keywords from this run.
-    Already set during insert — this pass updates any that
-    were skipped due to ON CONFLICT (existing rows).
-    """
     await db.execute(
         text(
             "UPDATE keywords "

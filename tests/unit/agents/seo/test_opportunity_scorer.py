@@ -177,3 +177,14 @@ async def test_keyword_ids_param_is_passed_through() -> None:
     select_call_params = db.execute.call_args_list[1][0][1]
     assert "keyword_ids" in select_call_params
     assert result.data["opportunities_created"] == 1
+
+
+@pytest.mark.asyncio
+async def test_composite_score_capped_at_10() -> None:
+    # Perfect keyword: max volume, zero KD, max CPC, commercial intent
+    # raw = (10*0.4 + 5*0.3 + 5*0.2 + 10*0.1) * 1.5 = 10.0 * 1.5 = 15 → capped at 10
+    row = _kw_row("id-cap", "perfect keyword", 50000, 0.0, 12.5, "commercial")
+    db = _make_db([row])
+    result = await OpportunityScorerAgent().run(_make_ctx(db))
+
+    assert result.data["score_range"]["max"] <= 10.0

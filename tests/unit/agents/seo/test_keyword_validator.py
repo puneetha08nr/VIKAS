@@ -131,11 +131,11 @@ async def test_result_includes_all_count_fields(ctx: AgentContext) -> None:
     assert result.data["archived"] == _EXPECTED["archived"]
 
 
-async def test_data_source_is_llm_estimate_when_dataforseo_unavailable(ctx: AgentContext) -> None:
+async def test_data_source_is_pending_when_dataforseo_unavailable(ctx: AgentContext) -> None:
     with _patch_prompt(), _patch_dataforseo_unavailable():
         result = await KeywordValidatorAgent().run(ctx)
 
-    assert result.data["data_source"] == "llm_estimate"
+    assert result.data["data_source"] == "pending"
 
 
 async def test_data_source_is_dataforseo_when_integration_succeeds(
@@ -152,23 +152,17 @@ async def test_data_source_is_dataforseo_when_integration_succeeds(
     assert result.data["data_source"] == "dataforseo"
 
 
-async def test_metric_update_written_to_db_before_llm(
+async def test_metric_update_written_to_db(
     ctx: AgentContext, mock_db: AsyncMock
 ) -> None:
-    llm_calls: list[int] = []
-
-    async def _track_llm(*args, **kwargs):  # noqa: ANN002
-        llm_calls.append(
-            sum(1 for c in mock_db.execute.call_args_list if "data_source" in str(c))
-        )
-        return _MOCK_LLM_RESPONSE
-
-    ctx.llm.complete = AsyncMock(side_effect=_track_llm)
     with _patch_prompt(), _patch_dataforseo_unavailable():
         await KeywordValidatorAgent().run(ctx)
 
-    # data_source UPDATE must have happened before the LLM was called
-    assert llm_calls[0] > 0, "Expected metric UPDATEs before LLM call"
+    metric_updates = [
+        c for c in mock_db.execute.call_args_list
+        if c.args and "data_source" in str(c.args[0])
+    ]
+    assert len(metric_updates) > 0, "Expected metric UPDATE statements in DB"
 
 
 async def test_agent_run_record_created(ctx: AgentContext, mock_db: AsyncMock) -> None:
@@ -182,17 +176,15 @@ async def test_agent_run_record_created(ctx: AgentContext, mock_db: AsyncMock) -
     assert len(run_inserts) == 1
 
 
-async def test_tokens_and_cost_from_llm_in_result(
+async def test_no_llm_tokens_used(
     ctx: AgentContext, mock_llm: MagicMock
 ) -> None:
-    mock_llm.last_tokens_used = 350
-    mock_llm.last_cost_usd = 0.0007
-
     with _patch_prompt(), _patch_dataforseo_unavailable():
         result = await KeywordValidatorAgent().run(ctx)
 
-    assert result.tokens_used == 350
-    assert result.cost_usd == pytest.approx(0.0007)
+    assert result.tokens_used == 0
+    assert result.cost_usd == pytest.approx(0.0)
+    mock_llm.complete.assert_not_called()
 
 
 # ── Empty / no-op cases ───────────────────────────────────────────────────────
@@ -236,7 +228,8 @@ async def test_no_raw_keywords_found_returns_success(
     mock_llm.complete.assert_not_called()
 
 
-async def test_missing_prompt_results_in_failed_status(ctx: AgentContext) -> None:
+async def test_no_prompt_needed_agent_succeeds(ctx: AgentContext) -> None:
+    """keyword_validator is pure rules — no prompt lookup, no LLM dependency."""
     with (
         patch.object(
             PromptRegistry,
@@ -247,8 +240,7 @@ async def test_missing_prompt_results_in_failed_status(ctx: AgentContext) -> Non
     ):
         result = await KeywordValidatorAgent().run(ctx)
 
-    assert result.status == "failed"
-    assert "keyword_validator" in (result.error or "")
+    assert result.status == "success"
 
 
 # ── Hard rules ────────────────────────────────────────────────────────────────
@@ -258,7 +250,8 @@ async def test_hard_rule_low_volume_archived_without_llm(
 ) -> None:
     low_volume_rows = [
         {"id": "aaaaaaaa-0000-0000-0000-000000000001", "keyword": "niche tool",
-         "volume": 10, "kd": 2.0, "cpc": 1.0, "intent": "commercial", "status": "raw"},
+         "volume": 10, "kd": 2.0, "cpc": 1.0, "intent": "commercial",
+         "status": "raw", "data_source": "dataforseo"},
     ]
     db = _make_db(keyword_rows=low_volume_rows, status_counts={"archived": 1})
     ctx = AgentContext(
@@ -287,7 +280,8 @@ async def test_hard_rule_high_kd_archived_without_llm(
 ) -> None:
     high_kd_rows = [
         {"id": "aaaaaaaa-0000-0000-0000-000000000001", "keyword": "hard keyword",
-         "volume": 5000, "kd": 9.5, "cpc": 3.0, "intent": "commercial", "status": "raw"},
+         "volume": 5000, "kd": 9.5, "cpc": 3.0, "intent": "commercial",
+         "status": "raw", "data_source": "dataforseo"},
     ]
     db = _make_db(keyword_rows=high_kd_rows, status_counts={"archived": 1})
     ctx = AgentContext(
@@ -326,17 +320,19 @@ async def test_hard_rule_navigational_intent_archived_without_llm(
     mock_llm.complete.assert_not_called()
 
 
-async def test_healthy_keyword_reaches_llm(ctx: AgentContext, mock_llm: MagicMock) -> None:
+async def test_healthy_keyword_validated_without_llm(
+    ctx: AgentContext, mock_llm: MagicMock
+) -> None:
     with _patch_prompt(), _patch_dataforseo_unavailable():
         await KeywordValidatorAgent().run(ctx)
 
-    mock_llm.complete.assert_called()
+    mock_llm.complete.assert_not_called()
 
 
 # ── LLM batch splitting ───────────────────────────────────────────────────────
 
-async def test_llm_called_in_batches_of_50(mock_llm: MagicMock) -> None:
-    """51 candidates → 2 LLM calls."""
+async def test_large_batch_processed_without_llm(mock_llm: MagicMock) -> None:
+    """51 candidates processed by rules only — 0 LLM calls."""
     fifty_one_rows = [
         {
             "id": f"aaaaaaaa-0000-0000-0000-{i:012d}",
@@ -359,9 +355,10 @@ async def test_llm_called_in_batches_of_50(mock_llm: MagicMock) -> None:
         llm=mock_llm,
     )
     with _patch_prompt(), _patch_dataforseo_unavailable():
-        await KeywordValidatorAgent().run(ctx)
+        result = await KeywordValidatorAgent().run(ctx)
 
-    assert mock_llm.complete.call_count == 2
+    assert result.status == "success"
+    assert mock_llm.complete.call_count == 0
 
 
 # ── _should_hard_archive unit tests ──────────────────────────────────────────

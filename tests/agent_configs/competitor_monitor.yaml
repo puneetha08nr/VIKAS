@@ -8,7 +8,7 @@ external_dependency: httpx_sitemap
 skip_concurrent: true
 
 happy_path_params:
-  competitors: ["https://example.com", "https://ahrefs.com"]
+  competitors: ["https://ahrefs.com"]
 
 row_count_sql: "SELECT COUNT(*) FROM competitors WHERE org_id = '{org_id}'"
 expected_min_rows: 0

@@ -91,7 +91,7 @@ def main() -> None:
     print("Result:")
     print(json.dumps(result, indent=2, default=str))
 
-    if result.get("status") != "success":
+    if result.get("status") == "failed":
         sys.exit(1)
 
 

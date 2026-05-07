@@ -92,7 +92,7 @@ async def compute_composite(keyword, org_id, db) -> dict:
         scores[dim.name] = s
         weighted_sum += s * dim.weight
 
-    composite = round(weighted_sum * intent_multiplier, 3)
+    composite = round(min(weighted_sum * intent_multiplier, 10.0), 3)
 
     return {
         "composite_score": composite,

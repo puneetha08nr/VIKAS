@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { AI_SUGGESTIONS } from '@/lib/mocks'
 
 interface ResearchModalProps {
   open: boolean
@@ -73,24 +72,35 @@ export function ResearchModal({
 
         {/* Body */}
         <div className="px-5 py-4 space-y-4">
-          {/* Error banner */}
-          {error && !isLoading && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-3 text-xs text-red-700 space-y-1.5">
-              <div className="font-medium text-red-800">Research failed</div>
-              <div className="leading-relaxed">{error}</div>
-              {(error.toLowerCase().includes('dataforseo') ||
-                error.toLowerCase().includes('credentials') ||
-                error.toLowerCase().includes('402')) && (
+          {/* Error / warning banner */}
+          {error && !isLoading && (() => {
+            const isConfigNotice =
+              error.toLowerCase().includes('dataforseo') ||
+              error.toLowerCase().includes('credentials') ||
+              error.toLowerCase().includes('pending') ||
+              error.toLowerCase().includes('402')
+            return isConfigNotice ? (
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-3 text-xs text-yellow-800 space-y-1.5">
+                <div className="font-medium">DataForSEO not configured</div>
+                <div className="leading-relaxed text-yellow-700">
+                  Keywords will be sourced from Google Suggest. Volume, KD, and CPC will be blank
+                  until you configure DataForSEO and click <strong className="font-medium">Fetch metrics</strong>.
+                </div>
                 <button
                   type="button"
                   onClick={() => { onClose(); router.push('/settings') }}
-                  className="inline-flex items-center gap-1 text-red-600 underline underline-offset-2 hover:text-red-800"
+                  className="inline-flex items-center gap-1 text-yellow-700 underline underline-offset-2 hover:text-yellow-900"
                 >
                   → Configure DataForSEO in Settings → Integrations
                 </button>
-              )}
-            </div>
-          )}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-3 text-xs text-red-700 space-y-1.5">
+                <div className="font-medium text-red-800">Research failed</div>
+                <div className="leading-relaxed">{error}</div>
+              </div>
+            )
+          })()}
 
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1.5">
@@ -105,25 +115,11 @@ export function ResearchModal({
               disabled={isLoading}
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
             />
-            <div className="text-xs text-gray-400 mt-2 mb-1.5">
-              Suggestions from your knowledge base:
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {AI_SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => setSeed(s)}
-                  className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-100 hover:border-gray-300 disabled:opacity-50"
-                >
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 3v5M12 16v5M3 12h5M16 12h5M5.6 5.6l3.5 3.5M14.9 14.9l3.5 3.5M18.4 5.6l-3.5 3.5M9.1 14.9l-3.5 3.5" />
-                  </svg>
-                  {s}
-                </button>
-              ))}
-            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Upload documents in{' '}
+              <span className="font-medium text-gray-500">Knowledge Base</span>{' '}
+              to get topic suggestions here.
+            </p>
           </div>
 
           {/* What happens next */}

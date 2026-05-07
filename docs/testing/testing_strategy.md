@@ -1,3 +1,5 @@
+
+
 # VIKAS — End-to-End Testing Strategy
 
 Senior testing engineer perspective. One agent per session. Real DB, real LLM, no mocks.
