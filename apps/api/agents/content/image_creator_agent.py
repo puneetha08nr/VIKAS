@@ -146,6 +146,8 @@ async def _generate_image_dalle(prompt: str, aspect_ratio: str) -> str:
         quality="standard",
         n=1,
     )
+    if not response.data:
+        return ""
     return response.data[0].url or ""
 
 
