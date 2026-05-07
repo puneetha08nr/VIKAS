@@ -23,19 +23,21 @@ def upgrade() -> None:
         sa.Column("org_id", postgresql.UUID(as_uuid=True),
                   sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
         sa.Column("keyword", sa.Text, nullable=True),
-        sa.Column("format", sa.String(50), nullable=False, server_default="'checklist'"),
+        sa.Column("format", sa.String(50), nullable=False, server_default=sa.text("'checklist'")),
         sa.Column("title", sa.Text, nullable=True),
         sa.Column("body", sa.Text, nullable=True),
-        sa.Column("status", sa.String(20), nullable=False, server_default="'draft'"),
+        sa.Column("status", sa.String(20), nullable=False, server_default=sa.text("'draft'")),
         sa.Column("created_at", sa.DateTime(timezone=True),
                   server_default=sa.text("now()"), nullable=False),
     )
     op.create_index("ix_lead_magnets_org_id", "lead_magnets", ["org_id"])
-    op.execute("""
-        ALTER TABLE lead_magnets ENABLE ROW LEVEL SECURITY;
+    op.execute("ALTER TABLE lead_magnets ENABLE ROW LEVEL SECURITY")
+    op.execute(
+        """
         CREATE POLICY lead_magnets_org_isolation ON lead_magnets
-            USING (org_id = current_setting('app.current_org_id')::uuid);
-    """)
+            USING (org_id = current_setting('app.current_org_id')::uuid)
+        """
+    )
 
 
 def downgrade() -> None:

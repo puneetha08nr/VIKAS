@@ -1,10 +1,11 @@
+import math
 import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
-from pydantic import BaseModel
-from sqlalchemy import String, cast, select, text
+from pydantic import BaseModel, Field
+from sqlalchemy import String, cast, func, select, text
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,8 +16,12 @@ from core.task_queue import AgentCommand, dispatch
 from db.models.agent_runs import AgentRun, AgentRunStatus
 from db.models.keywords import Keyword, KeywordStatus
 from db.models.organizations import Organization
+from integrations.base import IntegrationError
+from integrations.dataforseo import DataForSEOIntegration
 
 router = APIRouter(prefix="/keywords", tags=["keywords"])
+
+_SORT_COLS = {"created_at", "volume", "kd", "cpc"}
 
 
 class ResearchBody(BaseModel):
@@ -24,7 +29,10 @@ class ResearchBody(BaseModel):
 
 
 class ValidateBody(BaseModel):
-    keyword_ids: list[str]
+    keyword_ids: list[uuid.UUID] = Field(
+        min_length=1,
+        description="At least one keyword ID required",
+    )
 
 
 # ── List / stats ──────────────────────────────────────────────────────────────
@@ -33,17 +41,54 @@ class ValidateBody(BaseModel):
 async def list_keywords(
     kw_status: KeywordStatus | None = Query(None, alias="status"),
     intent: str | None = Query(None),
-    limit: int = Query(100, ge=1, le=500),
+    data_source: str | None = Query(None),
+    search: str | None = Query(None),
+    sort: str = Query("created_at"),
+    order: str = Query("desc"),
+    limit: int = Query(20, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     org: Organization = Depends(get_current_org),
     db: AsyncSession = Depends(get_db_for_org),
-) -> list[dict]:
-    q = select(Keyword).order_by(Keyword.volume.desc().nullslast()).limit(limit)
+) -> dict:
+    conditions = []
     if kw_status:
-        q = q.where(cast(Keyword.status, String) == kw_status.value)
+        conditions.append(cast(Keyword.status, String) == kw_status.value)
     if intent:
-        q = q.where(Keyword.intent == intent)
-    result = await db.execute(q)
-    return [_kw_dict(k) for k in result.scalars().all()]
+        conditions.append(Keyword.intent == intent)
+    if data_source:
+        conditions.append(Keyword.data_source == data_source)
+    if search:
+        conditions.append(Keyword.keyword.ilike(f"%{search}%"))
+
+    count_q = select(func.count(Keyword.id))
+    for cond in conditions:
+        count_q = count_q.where(cond)
+    total: int = await db.scalar(count_q) or 0
+
+    sort_key = sort if sort in _SORT_COLS else "created_at"
+    sort_col = getattr(Keyword, sort_key)
+    order_expr = (
+        sort_col.asc().nullslast() if order == "asc"
+        else sort_col.desc().nullslast()
+    )
+
+    data_q = select(Keyword).order_by(order_expr).limit(limit).offset(offset)
+    for cond in conditions:
+        data_q = data_q.where(cond)
+    result = await db.execute(data_q)
+    kw_list = [_kw_dict(k) for k in result.scalars().all()]
+
+    page = (offset // limit) + 1
+    total_pages = max(1, math.ceil(total / limit))
+
+    return {
+        "keywords": kw_list,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "page": page,
+        "total_pages": total_pages,
+    }
 
 
 @router.get("/stats")
@@ -61,7 +106,8 @@ async def keyword_stats(
                 COUNT(*) FILTER (WHERE status::text = 'archived')        AS archived,
                 COUNT(*) FILTER (WHERE status::text = 'clustered')       AS clustered,
                 COUNT(*) FILTER (WHERE intent = 'commercial')            AS commercial,
-                COUNT(*) FILTER (WHERE intent = 'informational')         AS informational
+                COUNT(*) FILTER (WHERE intent = 'informational')         AS informational,
+                COUNT(*) FILTER (WHERE data_source IN ('pending', 'llm_estimate')) AS pending
             FROM keywords
         """)
     )
@@ -74,6 +120,7 @@ async def keyword_stats(
         "clustered": row["clustered"],
         "commercial": row["commercial"],
         "informational": row["informational"],
+        "pending": row["pending"],
     }
 
 
@@ -140,12 +187,6 @@ async def run_validate(
     org: Organization = Depends(get_current_org),
     db: AsyncSession = Depends(get_db_for_org),
 ) -> dict:
-    if not body.keyword_ids:
-        raise HTTPException(
-            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="keyword_ids must not be empty.",
-        )
-
     run = AgentRun(
         org_id=org.id,
         agent_name="keyword_validator",
@@ -159,9 +200,76 @@ async def run_validate(
         agent_name="keyword_validator",
         org_id=str(org.id),
         run_id=str(run.id),
-        params={"keyword_ids": body.keyword_ids},
+        params={"keyword_ids": [str(kw_id) for kw_id in body.keyword_ids]},
     )
     return await _dispatch_or_fail(command, run, db)
+
+
+# ── Fetch metrics for pending keywords ───────────────────────────────────────
+
+@router.post("/fetch-metrics", status_code=http_status.HTTP_200_OK)
+async def fetch_pending_metrics(
+    org: Organization = Depends(get_current_org),
+    db: AsyncSession = Depends(get_db_for_org),
+) -> dict:
+    """Fetch real DataForSEO metrics for all keywords where data_source='pending'.
+
+    Returns {updated: N}. Raises 422 if DataForSEO is not configured or fails.
+    """
+    result = await db.execute(
+        select(Keyword.id, Keyword.keyword).where(
+            Keyword.data_source.in_(["pending", "llm_estimate"])
+        )
+    )
+    pending = result.all()
+
+    if not pending:
+        return {"updated": 0, "message": "No pending keywords"}
+
+    integration = DataForSEOIntegration()
+    try:
+        metrics = await integration.get_keyword_metrics(
+            keywords=[row.keyword for row in pending],
+            org_id=str(org.id),
+            db=db,
+        )
+    except IntegrationError as exc:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"DataForSEO unavailable: {exc}",
+        )
+
+    updated = 0
+    for row in pending:
+        m = metrics.get(row.keyword)
+        if not m:
+            continue
+        volume = m.get("volume")
+        kd = m.get("kd")
+        cpc = m.get("cpc")
+        priority: float | None = None
+        if volume is not None and kd is not None:
+            intent_row = await db.execute(
+                select(Keyword.intent).where(Keyword.id == row.id)
+            )
+            intent = intent_row.scalar_one_or_none() or "informational"
+            multiplier = 2.0 if intent in ("commercial", "transactional") else 1.0
+            priority = round((volume / 1000) * max(0.0, 10.0 - kd) * multiplier, 3)
+        await db.execute(
+            text(
+                "UPDATE keywords "
+                "SET volume = :volume, kd = :kd, cpc = :cpc, "
+                "    data_source = 'dataforseo', "
+                "    priority_score = :priority, "
+                "    updated_at = now() "
+                "WHERE id = :id"
+            ),
+            {"volume": volume, "kd": kd, "cpc": cpc, "priority": priority, "id": str(row.id)},
+        )
+        updated += 1
+
+    await db.commit()
+    return {"updated": updated}
 
 
 # ── Detail ────────────────────────────────────────────────────────────────────

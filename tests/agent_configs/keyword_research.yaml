@@ -1,0 +1,37 @@
+agent_name: keyword_research
+tier: fast
+uses_llm: false
+output_table: keywords
+has_rls: true
+external_dependency: dataforseo_optional
+# DataForSEO provides real metrics; fallback is Google Suggest with pending metrics (no LLM).
+skip_concurrent: false  # ON CONFLICT DO NOTHING makes concurrent upserts safe
+
+happy_path_params:
+  seed_keyword: "ai marketing automation"
+
+row_count_sql: "SELECT COUNT(*) FROM keywords WHERE org_id = '{org_id}' AND source_agent = 'keyword_research'"
+expected_min_rows: 1
+idempotent: false  # each run adds new rows
+
+api_read_endpoint: "GET /api/v1/keywords"
+api_write_endpoint: "POST /api/v1/keywords/research"
+api_agent_trigger: "POST /api/v1/agents/keyword_research/run"
+api_write_body:
+  seed_keyword: "content marketing"
+api_invalid_body: '{"seed_keyword": 12345}'
+api_invalid_expected_status: 422
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /keywords
+ui_component: "Keywords research trigger + table"
+ui_checklist:
+  - "Page /keywords loads with keyword table (or empty state message)"
+  - "Click 'Research Keywords' button — shows loading state"
+  - "After research completes — new keywords appear in table"
+  - "Table columns: keyword, volume, KD, CPC, intent all visible"
+  - "Keywords have status badges (raw/validated/archived)"
+  - "Search/filter box narrows the keyword list"
+  - "Keyword row click shows detail panel or navigates to detail page"

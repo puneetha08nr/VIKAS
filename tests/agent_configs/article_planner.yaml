@@ -1,0 +1,32 @@
+agent_name: article_planner
+tier: standard
+uses_llm: true
+output_table: article_plans
+has_rls: true
+external_dependency: none
+skip_concurrent: true  # LLM cost
+
+happy_path_params:
+  opportunity_id: ~  # null — agent creates a plan without an opportunity link
+  keyword: "ai marketing automation guide"
+
+row_count_sql: "SELECT COUNT(*) FROM article_plans WHERE org_id = '{org_id}'"
+expected_min_rows: 0
+idempotent: false
+
+api_read_endpoint: ~
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/article_planner/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /content
+ui_component: "Article plans queue"
+ui_checklist:
+  - "Article plans appear in content queue with title and keyword"
+  - "Outline field shows structured sections (not raw JSON)"
+  - "word_count_target is a numeric value"
+  - "Plan links to its opportunity when opportunity_id is set"

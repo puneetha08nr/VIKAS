@@ -1,6 +1,6 @@
-export type KeywordStatus = 'raw' | 'validated' | 'clustered' | 'archived'
+export type KeywordStatus = 'raw' | 'validated' | 'clustered' | 'archived' | 'pending_metrics'
 export type KeywordIntent = 'commercial' | 'informational' | 'transactional' | 'navigational'
-export type DataSource = 'dataforseo' | 'llm_estimate'
+export type DataSource = 'dataforseo' | 'keywords_everywhere' | 'estimated' | 'pending' | 'llm_estimate'
 export type RunStatus = 'running' | 'success' | 'failed' | 'partial'
 
 export interface KeywordRow {
@@ -41,6 +41,16 @@ export interface KeywordStats {
   commercial: number
   informational: number
   opportunities?: number
+  pending?: number
+}
+
+export interface KeywordPage {
+  keywords: KeywordRow[]
+  total: number
+  limit: number
+  offset: number
+  page: number
+  total_pages: number
 }
 
 export interface AgentRun {

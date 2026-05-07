@@ -96,6 +96,12 @@ services:
         condition: service_healthy
     volumes:
       - ../../apps/api:/app
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A workers.celery_app inspect ping --timeout 5 -q 2>/dev/null && echo ok || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   # ── Next.js frontend ─────────────────────────────────────────────────────────
   web:

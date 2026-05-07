@@ -27,11 +27,11 @@ def upgrade() -> None:
         sa.Column("title", sa.Text, nullable=True),
         sa.Column("meta_description", sa.Text, nullable=True),
         sa.Column("outline", postgresql.JSONB(astext_type=sa.Text()),
-                  nullable=False, server_default="'[]'::jsonb"),
+                  nullable=False, server_default=sa.text("'[]'::jsonb")),
         sa.Column("word_count_target", sa.Integer, nullable=True),
         sa.Column("content_angle", sa.Text, nullable=True),
         sa.Column("cta", sa.Text, nullable=True),
-        sa.Column("status", sa.String(20), nullable=False, server_default="'planned'"),
+        sa.Column("status", sa.String(20), nullable=False, server_default=sa.text("'planned'")),
         sa.Column("created_at", sa.DateTime(timezone=True),
                   server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True),
@@ -39,11 +39,13 @@ def upgrade() -> None:
     )
     op.create_index("ix_article_plans_org_id", "article_plans", ["org_id"])
     op.create_index("ix_article_plans_opportunity_id", "article_plans", ["opportunity_id"])
-    op.execute("""
-        ALTER TABLE article_plans ENABLE ROW LEVEL SECURITY;
+    op.execute("ALTER TABLE article_plans ENABLE ROW LEVEL SECURITY")
+    op.execute(
+        """
         CREATE POLICY article_plans_org_isolation ON article_plans
-            USING (org_id = current_setting('app.current_org_id')::uuid);
-    """)
+            USING (org_id = current_setting('app.current_org_id')::uuid)
+        """
+    )
 
 
 def downgrade() -> None:

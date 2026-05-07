@@ -1,0 +1,50 @@
+agent_name: brand_voice_keeper
+tier: fast
+uses_llm: false
+output_table: brand_voice
+has_rls: true
+external_dependency: none
+skip_concurrent: false
+
+happy_path_params:
+  tone: "authoritative yet approachable"
+  vocabulary: ["ROI", "pipeline", "conversion", "attribution"]
+  banned_phrases: ["synergy", "leverage", "circle back"]
+  style_rules:
+    max_sentence_length: 25
+    prefer_active_voice: true
+    oxford_comma: true
+
+row_count_sql: "SELECT COUNT(*) FROM brand_voice WHERE org_id = '{org_id}'"
+expected_min_rows: 1
+idempotent: true
+expected_idempotent_count: 1
+
+api_read_endpoint: "GET /api/v1/brand-voice"
+api_write_endpoint: "PUT /api/v1/brand-voice"
+api_agent_trigger: "POST /api/v1/agents/brand_voice_keeper/run"
+api_write_body:
+  tone: "test-harness-tone"
+  vocabulary: ["test-term"]
+  banned_phrases: []
+  style_rules: {}
+api_invalid_body: '{"vocabulary": "not a list, should be array"}'
+api_invalid_expected_status: 422
+
+expected_list_fields: ["vocabulary", "banned_phrases"]
+expected_nullable_fields: ["id"]
+
+ui_page: /settings
+ui_component: "Brand Voice settings form"
+ui_checklist:
+  - "Page /settings loads without console errors"
+  - "Brand Voice section displays current tone value"
+  - "Vocabulary terms render as tags or comma list (not raw JSON)"
+  - "Banned phrases section shows correct phrase count"
+  - "Editing tone and saving — new value persists after page refresh"
+  - "Adding a vocabulary term — term appears in list immediately"
+  - "Style rules section renders key-value pairs, not raw JSON blob"
+  - "Target audience field is visible"
+  - "Target audience accepts free text"
+  # BUG-UI-003: last two items currently FAIL — style_rules editor and
+  # target_audience field not implemented in apps/web settings page.

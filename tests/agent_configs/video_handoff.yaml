@@ -1,0 +1,37 @@
+agent_name: video_handoff
+tier: fast
+uses_llm: false
+output_table: video_jobs
+has_rls: true
+external_dependency: email_optional
+# Email notification is optional — agent creates the job regardless.
+skip_concurrent: false
+
+happy_path_params:
+  title: "AI Marketing Automation Overview"
+  script_text: "In this video we explore how AI is transforming marketing automation."
+  scenes: [{"text": "intro scene", "duration": 5}]
+  broll_suggestions: []
+  brand_voice: {}
+  deadline: ""
+
+row_count_sql: "SELECT COUNT(*) FROM video_jobs WHERE org_id = '{org_id}'"
+expected_min_rows: 0
+idempotent: false
+
+api_read_endpoint: "GET /api/v1/video-jobs"
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/video_handoff/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /video-queue
+ui_component: "Video queue list"
+ui_checklist:
+  - "Video queue shows jobs with title and status=pending_video"
+  - "upload_token is visible to admin (for external video team)"
+  - "Job detail shows script_text and scene breakdown"
+  - "After video upload (via upload token) — status updates to completed"

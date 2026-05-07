@@ -49,15 +49,21 @@ def import_all_agents() -> None:
         "agents.content.image_creator_agent",
         "agents.knowledge.document_ingester",
         "agents.knowledge.brand_voice_keeper",
-        "agents.knowledge.rag_searcher",           # registered
-        "agents.knowledge.internal_link_finder",   # registered
+        "agents.knowledge.rag_searcher",
+        "agents.knowledge.internal_link_finder",
         "agents.knowledge.wordpress_publisher",
-        "agents.ops.preference_learner",           # registered
+        "agents.knowledge.ai_assistant",
+        "agents.ops.preference_learner",
         "agents.competitor.competitor_monitor",
         "agents.competitor.content_extractor",
         "agents.competitor.keyword_overlap_analyzer",
         "agents.competitor.threat_assessor",
-        "agents.video.video_handoff",              # registered
+        "agents.competitor.competitor_discovery",
+        "agents.orchestration.pipeline_orchestrator",
+        "agents.orchestration.strategy_synthesizer",
+        "agents.orchestration.auto_mode_engine",
+        "agents.video.video_handoff",
+        "agents.video.broll_selector",
     ]
 
     for module in agent_modules:

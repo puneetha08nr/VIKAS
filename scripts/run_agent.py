@@ -32,8 +32,8 @@ from core.llm_router import LLMRouter
 from config.settings import settings
 from db.session import org_session
 
-# Import agents package so @register decorators execute
-import agents.seo.keyword_research  # noqa: F401 — registers KeywordResearchAgent
+from core.agent_registry import import_all_agents
+import_all_agents()  # registers all 34 agents via @register decorators
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -91,7 +91,7 @@ def main() -> None:
     print("Result:")
     print(json.dumps(result, indent=2, default=str))
 
-    if result.get("status") != "success":
+    if result.get("status") == "failed":
         sys.exit(1)
 
 

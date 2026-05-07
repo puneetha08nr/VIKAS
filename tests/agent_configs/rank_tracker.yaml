@@ -1,0 +1,32 @@
+agent_name: rank_tracker
+tier: fast
+uses_llm: false
+output_table: rank_tracking
+has_rls: true
+external_dependency: gsc_required
+# GSC is required to fetch real rank data. Without it, agent logs a warning and returns empty.
+skip_concurrent: false
+
+happy_path_params:
+  site_url: "https://example.com"
+  days: 30
+
+row_count_sql: "SELECT COUNT(*) FROM rank_tracking WHERE org_id = '{org_id}'"
+expected_min_rows: 0
+idempotent: false
+
+api_read_endpoint: "GET /api/v1/rank-tracking"
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/rank_tracker/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /keywords
+ui_component: "Rank tracking section or /analytics"
+ui_checklist:
+  - "Rank tracking rows show keyword, position, and date"
+  - "Position changes from previous run are highlighted"
+  - "Empty state message shown when no GSC data available"

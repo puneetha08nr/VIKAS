@@ -641,6 +641,47 @@ All 8 dashboard pages built as of 2026-05-05. Every page connects to real API en
 
 ---
 
+## Architecture Decisions
+
+### DECISION-001 — data_source = 'llm_estimate' is legacy, treat as 'pending'
+Pre-DECISION-001 code used `data_source='llm_estimate'` for LLM-estimated metrics.
+All new code treats this value identically to 'pending' — both show "Metrics pending" badge,
+both are included in the Fetch Metrics queue. The DB values are not migrated; the badge layer
+handles both aliases. `'llm_estimate'` will be removed once all rows are true-up'd.
+
+### DECISION-002 — Tiered keyword metrics fallback (2026-05-07)
+Pipeline must never stop due to a missing paid API. Metric sourcing is tiered:
+
+```
+Tier 1: DataForSEO          — real, paid, authoritative
+Tier 2: Keywords Everywhere — real, cheap (not yet built — slot reserved)
+Tier 3: Anchor-Scale Estimator — estimated, free
+           Same-topic anchors from DB (data_source IN dataforseo, keywords_everywhere)
+           PyTrends ratio scaling for volume (gracefully skipped if rate-limited)
+           KD from Google Suggest count (10 suggestions → 7, 5 → 5, <3 → 2)
+           CPC = anchor_avg_cpc × (kd_estimate / 5)
+           Saves with data_source='estimated', confidence='low', true_up_required=True
+Tier 4: Pending             — safe fallback, saves with null metrics, never fails
+```
+
+**Validation rules are now confidence-aware:**
+- `dataforseo` / `keywords_everywhere`: strict — archive if volume < 100 or kd > 8
+- `estimated`: lenient (±30% tolerance) — archive if volume < 50 or kd > 9
+- `pending`: intent-only — navigational → archive; everything else → `pending_metrics`
+
+**New status: `pending_metrics`** — keyword has no reliable volume/KD, waiting for true-up.
+Fetch Metrics (DataForSEO) is the true-up path. Estimated keywords are also true-up candidates.
+
+**data_source badge mapping:**
+- `dataforseo`, `keywords_everywhere` → 🟢 "Live"
+- `estimated` → 🔵 "Estimated" (with `(est.)` suffix on Validated badge)
+- `pending`, `llm_estimate` → 🟡 "Metrics pending"
+
+**New file:** `apps/api/integrations/anchor_scale_estimator.py`
+**Migration:** `i2j3k4l5m6n7_add_pending_metrics_status.py`
+
+---
+
 ## Environment Variables
 
 ```bash

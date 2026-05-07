@@ -1,0 +1,32 @@
+agent_name: topic_discovery
+tier: fast
+uses_llm: false
+output_table: topics
+has_rls: true
+external_dependency: httpx_google_suggest
+# Makes unauthenticated requests to Google Suggest API and Reddit
+skip_concurrent: true
+
+happy_path_params:
+  seed_keyword: "content marketing"
+  max_topics: 10
+
+row_count_sql: "SELECT COUNT(*) FROM topics WHERE org_id = '{org_id}'"
+expected_min_rows: 0
+idempotent: false
+
+api_read_endpoint: ~
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/topic_discovery/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /keywords
+ui_component: "Topic discovery widget"
+ui_checklist:
+  - "Topics appear with source label (pytrends_rising, google_suggest, reddit)"
+  - "Score column shows numeric relevance value"
+  - "Related keywords are rendered as tags, not raw JSON"

@@ -7,10 +7,11 @@ import type { KeywordRow, KwCluster } from '@/lib/types'
 
 function StatusBadge({ status }: { status: KeywordRow['status'] }) {
   const map = {
-    raw:       { bg: 'bg-gray-100',    text: 'text-gray-600',   dot: '#9A9AA3', label: 'Raw' },
-    validated: { bg: 'bg-purple-50',   text: 'text-purple-700', dot: '#534AB7', label: 'Validated' },
-    clustered: { bg: 'bg-green-50',    text: 'text-green-700',  dot: '#16A34A', label: 'Clustered' },
-    archived:  { bg: 'bg-gray-100',    text: 'text-gray-400',   dot: '#6B6B73', label: 'Archived' },
+    raw:             { bg: 'bg-gray-100',   text: 'text-gray-600',   dot: '#9A9AA3', label: 'Raw' },
+    validated:       { bg: 'bg-purple-50',  text: 'text-purple-700', dot: '#534AB7', label: 'Validated' },
+    clustered:       { bg: 'bg-green-50',   text: 'text-green-700',  dot: '#16A34A', label: 'Clustered' },
+    archived:        { bg: 'bg-gray-100',   text: 'text-gray-400',   dot: '#6B6B73', label: 'Archived' },
+    pending_metrics: { bg: 'bg-blue-50',    text: 'text-blue-700',   dot: '#3B82F6', label: 'Pending metrics' },
   }
   const m = map[status] ?? map.raw
   return (
@@ -45,24 +46,47 @@ function IntentBadge({ intent }: { intent: KeywordRow['intent'] }) {
 }
 
 function DataSourceBadge({ source }: { source: KeywordRow['data_source'] }) {
-  if (source === 'dataforseo') {
+  if (source === 'dataforseo' || source === 'keywords_everywhere') {
+    const label = source === 'dataforseo' ? 'DataForSEO' : 'KW Everywhere'
     return (
       <span
         className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium bg-green-50 text-green-700"
-        title="Live data from DataForSEO"
+        title={`Live data from ${label}`}
       >
         <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
-        Real
+        Live
+      </span>
+    )
+  }
+  if (source === 'estimated') {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700"
+        title="Estimated via Anchor-Scale (Tier 3). True-up required when real API restores."
+      >
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
+        Estimated
+      </span>
+    )
+  }
+  if (source === 'pending' || source === 'llm_estimate') {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700"
+        title="Metrics unavailable. Use Fetch metrics to backfill from DataForSEO."
+      >
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+        Metrics pending
       </span>
     )
   }
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-500"
-      title="LLM-generated estimate, pending validation"
+      title={source}
     >
       <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
-      Estimate
+      {source}
     </span>
   )
 }
@@ -73,9 +97,15 @@ function Difficulty({ value }: { value: number | null }) {
   if (value == null) return <span className="text-gray-300 text-xs">—</span>
   const pct = Math.min(100, Math.max(4, value * 10))
   const color =
-    value <= 4 ? '#16A34A' : value <= 7 ? '#D97706' : '#DC2626'
+    value < 4 ? '#16A34A'
+    : value < 7 ? '#CA8A04'
+    : value <= 9 ? '#EA580C'
+    : '#DC2626'
   const textColor =
-    value <= 4 ? 'text-green-700' : value <= 7 ? 'text-amber-700' : 'text-red-700'
+    value < 4 ? 'text-green-700'
+    : value < 7 ? 'text-yellow-700'
+    : value <= 9 ? 'text-orange-600'
+    : 'text-red-700'
   return (
     <span className="inline-flex items-center gap-2">
       <span className="inline-block w-10 h-1 rounded-full bg-gray-200 overflow-hidden">
@@ -139,6 +169,7 @@ interface KeywordsTableProps {
   onValidate?: (id: string) => void
   onCreateContent?: (keyword: KeywordRow) => void
   clusters?: KwCluster[]
+  validatingId?: string | null
 }
 
 export function KeywordsTable({
@@ -151,6 +182,7 @@ export function KeywordsTable({
   onValidate,
   onCreateContent,
   clusters = [],
+  validatingId = null,
 }: KeywordsTableProps) {
   const tableRef = useRef<HTMLDivElement>(null)
   const allChecked =
@@ -233,10 +265,17 @@ export function KeywordsTable({
             {keywords.map((kw) => {
               const cluster = clusters.find((c) => c.id === kw.cluster || c.id === kw.cluster_id)
               const isSel = selectedIds.has(kw.id)
+              const isValidatingRow = validatingId === kw.id
               return (
                 <tr
                   key={kw.id}
-                  className={`hover:bg-gray-50 transition-colors cursor-pointer ${isSel ? 'bg-indigo-50' : ''}`}
+                  className={`transition-colors cursor-pointer ${
+                    isValidatingRow
+                      ? 'bg-amber-50 hover:bg-amber-50'
+                      : isSel
+                      ? 'bg-indigo-50 hover:bg-indigo-50'
+                      : 'hover:bg-gray-50'
+                  }`}
                   onClick={() => onRowClick(kw)}
                 >
                   <td className="w-10 px-3 py-3">
@@ -274,7 +313,22 @@ export function KeywordsTable({
                     <DataSourceBadge source={kw.data_source} />
                   </td>
                   <td className="px-4 py-3">
-                    <StatusBadge status={kw.status} />
+                    {isValidatingRow ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
+                        <svg className="animate-spin h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" />
+                        </svg>
+                        Validating…
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1">
+                        <StatusBadge status={kw.status} />
+                        {kw.status === 'validated' && kw.data_source === 'estimated' && (
+                          <span className="text-xs text-blue-500 font-normal">(est.)</span>
+                        )}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <IntentBadge intent={kw.intent} />
@@ -289,7 +343,7 @@ export function KeywordsTable({
                     {kw.cpc != null ? `$${kw.cpc.toFixed(2)}` : '—'}
                   </td>
                   <td className="px-3 py-3 text-right">
-                    {kw.status === 'raw' && onValidate && (
+                    {!isValidatingRow && kw.status === 'raw' && onValidate && (
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onValidate(kw.id) }}
@@ -301,7 +355,7 @@ export function KeywordsTable({
                         Validate
                       </button>
                     )}
-                    {kw.status === 'validated' && (
+                    {!isValidatingRow && kw.status === 'validated' && (
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onCreateContent?.(kw) }}

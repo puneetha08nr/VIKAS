@@ -1,0 +1,33 @@
+agent_name: ai_assistant
+tier: standard
+uses_llm: true
+output_table: ~  # read-only — returns answer inline
+has_rls: false
+external_dependency: none
+skip_concurrent: true
+
+happy_path_params:
+  question: "What is our current content strategy?"
+  top_k: 5
+
+row_count_sql: ~
+expected_min_rows: 0
+idempotent: true
+
+api_read_endpoint: ~
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/ai_assistant/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /chat
+ui_component: "AI chat interface"
+ui_checklist:
+  - "Chat page loads with message input"
+  - "Sending a question returns an AI response within 10s"
+  - "Response cites source documents when RAG context is used"
+  - "Chat history persists within the session"
+  - "Empty question shows validation error, not a crash"

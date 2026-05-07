@@ -52,11 +52,11 @@ def upgrade() -> None:
     op.create_index("ix_content_feedback_org_id", "content_feedback", ["org_id"])
     op.create_index("ix_content_feedback_processed", "content_feedback", ["processed"])
 
+    op.execute("ALTER TABLE content_feedback ENABLE ROW LEVEL SECURITY")
     op.execute(
         """
-        ALTER TABLE content_feedback ENABLE ROW LEVEL SECURITY;
         CREATE POLICY content_feedback_org_isolation ON content_feedback
-            USING (org_id = current_setting('app.current_org_id')::uuid);
+            USING (org_id = current_setting('app.current_org_id')::uuid)
         """
     )
 
@@ -75,7 +75,7 @@ def upgrade() -> None:
             "preference_value",
             postgresql.JSONB(astext_type=sa.Text()),
             nullable=False,
-            server_default="'{}'::jsonb",
+            server_default=sa.text("'{}'::jsonb"),
         ),
         sa.Column(
             "updated_at",
@@ -89,11 +89,11 @@ def upgrade() -> None:
     )
     op.create_index("ix_preference_summaries_org_id", "preference_summaries", ["org_id"])
 
+    op.execute("ALTER TABLE preference_summaries ENABLE ROW LEVEL SECURITY")
     op.execute(
         """
-        ALTER TABLE preference_summaries ENABLE ROW LEVEL SECURITY;
         CREATE POLICY preference_summaries_org_isolation ON preference_summaries
-            USING (org_id = current_setting('app.current_org_id')::uuid);
+            USING (org_id = current_setting('app.current_org_id')::uuid)
         """
     )
 

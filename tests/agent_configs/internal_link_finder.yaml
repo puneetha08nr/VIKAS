@@ -1,0 +1,31 @@
+agent_name: internal_link_finder
+tier: fast
+uses_llm: false
+output_table: ~  # read-only — returns suggestions inline, no DB write
+has_rls: false
+external_dependency: embeddings_model
+skip_concurrent: false
+
+happy_path_params:
+  query: "how to improve marketing ROI"
+  top_k: 3
+
+row_count_sql: ~
+expected_min_rows: 0
+idempotent: true
+
+api_read_endpoint: ~
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/internal_link_finder/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /content
+ui_component: "Internal link suggestions in article editor"
+ui_checklist:
+  - "Article editor shows related article suggestions"
+  - "Suggested links have title, URL, and relevance score"
+  - "Clicking a suggestion inserts the link into the editor"

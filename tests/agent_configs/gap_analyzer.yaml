@@ -1,0 +1,31 @@
+agent_name: gap_analyzer
+tier: fast
+uses_llm: false
+output_table: opportunities
+has_rls: true
+external_dependency: gsc_optional
+# GSC enriches with real search data; agent runs in analysis-only mode without it
+skip_concurrent: false
+
+happy_path_params:
+  site_url: "https://example.com"
+  days: 30
+
+row_count_sql: "SELECT COUNT(*) FROM opportunities WHERE org_id = '{org_id}'"
+expected_min_rows: 0
+idempotent: true
+
+api_read_endpoint: "GET /api/v1/opportunities"
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/gap_analyzer/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /opportunities
+ui_component: "Opportunities sourced from gap_analyzer"
+ui_checklist:
+  - "Opportunities from gap_analyzer appear with source='gap_analyzer'"
+  - "competitive_gap_score column is populated (not 0)"

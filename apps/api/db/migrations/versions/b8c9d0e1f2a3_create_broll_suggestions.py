@@ -32,11 +32,13 @@ def upgrade() -> None:
                   server_default=sa.text("now()"), nullable=False),
     )
     op.create_index("ix_broll_suggestions_org_id", "broll_suggestions", ["org_id"])
-    op.execute("""
-        ALTER TABLE broll_suggestions ENABLE ROW LEVEL SECURITY;
+    op.execute("ALTER TABLE broll_suggestions ENABLE ROW LEVEL SECURITY")
+    op.execute(
+        """
         CREATE POLICY broll_suggestions_org_isolation ON broll_suggestions
-            USING (org_id = current_setting('app.current_org_id')::uuid);
-    """)
+            USING (org_id = current_setting('app.current_org_id')::uuid)
+        """
+    )
 
 
 def downgrade() -> None:

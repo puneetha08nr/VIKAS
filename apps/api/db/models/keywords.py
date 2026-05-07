@@ -15,6 +15,7 @@ class KeywordStatus(enum.StrEnum):
     validated = "validated"
     clustered = "clustered"
     archived = "archived"
+    pending_metrics = "pending_metrics"
 
 
 class Keyword(Base):
@@ -51,7 +52,7 @@ class Keyword(Base):
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_run_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     data_source: Mapped[str] = mapped_column(
-        String(30), nullable=False, server_default="llm_estimate"
+        String(30), nullable=False, server_default="pending"
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

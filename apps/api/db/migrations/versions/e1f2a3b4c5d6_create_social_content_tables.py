@@ -26,7 +26,7 @@ def upgrade() -> None:
         sa.Column("article_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("content", sa.Text, nullable=True),
         sa.Column("hashtags", postgresql.ARRAY(sa.Text), nullable=True),
-        sa.Column("status", sa.String(20), nullable=False, server_default="'draft'"),
+        sa.Column("status", sa.String(20), nullable=False, server_default=sa.text("'draft'")),
         sa.Column("created_at", sa.DateTime(timezone=True),
                   server_default=sa.text("now()"), nullable=False),
     )
@@ -40,8 +40,8 @@ def upgrade() -> None:
                   sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
         sa.Column("article_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("tweets", postgresql.JSONB(astext_type=sa.Text()),
-                  nullable=False, server_default="'[]'::jsonb"),
-        sa.Column("status", sa.String(20), nullable=False, server_default="'draft'"),
+                  nullable=False, server_default=sa.text("'[]'::jsonb")),
+        sa.Column("status", sa.String(20), nullable=False, server_default=sa.text("'draft'")),
         sa.Column("created_at", sa.DateTime(timezone=True),
                   server_default=sa.text("now()"), nullable=False),
     )
@@ -57,7 +57,7 @@ def upgrade() -> None:
         sa.Column("subject", sa.Text, nullable=True),
         sa.Column("preview_text", sa.Text, nullable=True),
         sa.Column("body_html", sa.Text, nullable=True),
-        sa.Column("status", sa.String(20), nullable=False, server_default="'draft'"),
+        sa.Column("status", sa.String(20), nullable=False, server_default=sa.text("'draft'")),
         sa.Column("created_at", sa.DateTime(timezone=True),
                   server_default=sa.text("now()"), nullable=False),
     )
@@ -71,20 +71,22 @@ def upgrade() -> None:
                   sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
         sa.Column("article_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("scenes", postgresql.JSONB(astext_type=sa.Text()),
-                  nullable=False, server_default="'[]'::jsonb"),
+                  nullable=False, server_default=sa.text("'[]'::jsonb")),
         sa.Column("total_duration_seconds", sa.Integer, nullable=True),
-        sa.Column("status", sa.String(20), nullable=False, server_default="'draft'"),
+        sa.Column("status", sa.String(20), nullable=False, server_default=sa.text("'draft'")),
         sa.Column("created_at", sa.DateTime(timezone=True),
                   server_default=sa.text("now()"), nullable=False),
     )
     op.create_index("ix_video_scripts_org_id", "video_scripts", ["org_id"])
 
     for tbl in ("linkedin_posts", "twitter_threads", "newsletters", "video_scripts"):
-        op.execute(f"""
-            ALTER TABLE {tbl} ENABLE ROW LEVEL SECURITY;
+        op.execute(f"ALTER TABLE {tbl} ENABLE ROW LEVEL SECURITY")
+        op.execute(
+            f"""
             CREATE POLICY {tbl}_org_isolation ON {tbl}
-                USING (org_id = current_setting('app.current_org_id')::uuid);
-        """)
+                USING (org_id = current_setting('app.current_org_id')::uuid)
+            """
+        )
 
 
 def downgrade() -> None:

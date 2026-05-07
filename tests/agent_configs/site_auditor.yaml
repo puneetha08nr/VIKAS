@@ -1,0 +1,31 @@
+agent_name: site_auditor
+tier: fast
+uses_llm: false
+output_table: site_audits
+has_rls: true
+external_dependency: gsc_required
+skip_concurrent: false
+
+happy_path_params:
+  site_url: "https://example.com"
+  days: 30
+
+row_count_sql: "SELECT COUNT(*) FROM site_audits WHERE org_id = '{org_id}'"
+expected_min_rows: 0
+idempotent: false
+
+api_read_endpoint: ~
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/site_auditor/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /keywords
+ui_component: "Site health / audit section"
+ui_checklist:
+  - "Site audit summary shows total_keywords, ranking_count, quick_wins"
+  - "avg_position is a numeric float, not null"
+  - "Quick wins list highlights low-effort, high-potential keywords"

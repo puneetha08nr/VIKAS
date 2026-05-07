@@ -16,6 +16,18 @@ function timeAgo(iso: string | null): string {
   return `${Math.floor(hours / 24)}d ago`
 }
 
+function CrawlStatus({ lastCrawledAt }: { lastCrawledAt: string | null }) {
+  if (!lastCrawledAt) {
+    return <span className="text-xs text-gray-400">Never crawled</span>
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-green-700">
+      <span className="h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />
+      Done · {timeAgo(lastCrawledAt)}
+    </span>
+  )
+}
+
 function ThreatBar({ value }: { value: number | null }) {
   if (value == null) return <span className="text-xs text-gray-400">—</span>
   const pct = Math.min(Math.max(value * 100, 0), 100)
@@ -30,22 +42,43 @@ function ThreatBar({ value }: { value: number | null }) {
   )
 }
 
-function AddCompetitorForm({ onAdd }: { onAdd: (domain: string) => Promise<void> }) {
+function normaliseDomain(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .replace(/\/.*$/, '')
+}
+
+function AddCompetitorForm({
+  onAdd,
+  existingDomains,
+}: {
+  onAdd: (domain: string) => Promise<void>
+  existingDomains: string[]
+}) {
   const [value, setValue] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const domain = value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '')
+    const domain = normaliseDomain(value)
     if (!domain) return
+    if (existingDomains.includes(domain)) {
+      setError(`${domain} is already being tracked.`)
+      return
+    }
     setError(null)
     setLoading(true)
     try {
       await onAdd(domain)
       setValue('')
-    } catch {
-      setError('Failed to add competitor. Check the domain and try again.')
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : 'Failed to add competitor. Check the domain and try again.'
+      setError(msg)
     } finally {
       setLoading(false)
     }
@@ -135,7 +168,10 @@ export default function CompetitorsPage() {
           <button
             key={tab}
             type="button"
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              setActiveTab(tab)
+              if (tab !== activeTab) setContentSearch('')
+            }}
             className={`rounded-md px-4 py-1.5 text-xs font-medium capitalize transition-colors ${
               activeTab === tab
                 ? 'bg-white text-gray-900 shadow-sm'
@@ -154,7 +190,10 @@ export default function CompetitorsPage() {
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
               Add Competitor Domain
             </p>
-            <AddCompetitorForm onAdd={(domain) => addMutation.mutateAsync(domain).then(() => {})} />
+            <AddCompetitorForm
+              onAdd={(domain) => addMutation.mutateAsync(domain).then(() => {})}
+              existingDomains={competitors.map((c) => normaliseDomain(c.domain))}
+            />
           </div>
 
           {/* Domains list */}
@@ -176,7 +215,7 @@ export default function CompetitorsPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">Domain</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 hidden sm:table-cell">Last Crawled</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 hidden sm:table-cell">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 hidden md:table-cell">Threat Score</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 hidden md:table-cell">Keyword Overlap</th>
                     <th className="px-4 py-3" />
@@ -195,8 +234,8 @@ export default function CompetitorsPage() {
                           {c.domain}
                         </a>
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-400 hidden sm:table-cell">
-                        {timeAgo(c.last_crawled_at)}
+                      <td className="px-4 py-3 hidden sm:table-cell">
+                        <CrawlStatus lastCrawledAt={c.last_crawled_at ?? null} />
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
                         <ThreatBar value={c.threat_score ?? null} />
@@ -268,11 +307,15 @@ export default function CompetitorsPage() {
                 <div key={i} className="h-12 animate-pulse rounded bg-gray-100" />
               ))}
             </div>
-          ) : filteredContent.length === 0 ? (
+          ) : competitorContent.length === 0 ? (
             <div className="py-12 text-center">
               <p className="text-sm text-gray-400">
-                {contentSearch ? 'No results match your search.' : 'No competitor content found. Run the competitor monitor agent to collect data.'}
+                No competitor content extracted yet. Run competitor monitor to start crawling.
               </p>
+            </div>
+          ) : filteredContent.length === 0 ? (
+            <div className="py-12 text-center">
+              <p className="text-sm text-gray-400">No results match your search.</p>
             </div>
           ) : (
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">

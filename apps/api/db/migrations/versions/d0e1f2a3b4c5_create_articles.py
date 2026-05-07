@@ -27,7 +27,7 @@ def upgrade() -> None:
         sa.Column("title", sa.Text, nullable=True),
         sa.Column("body_html", sa.Text, nullable=True),
         sa.Column("word_count", sa.Integer, nullable=True),
-        sa.Column("status", sa.String(20), nullable=False, server_default="'draft'"),
+        sa.Column("status", sa.String(20), nullable=False, server_default=sa.text("'draft'")),
         sa.Column("published_url", sa.Text, nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True),
                   server_default=sa.text("now()"), nullable=False),
@@ -37,11 +37,13 @@ def upgrade() -> None:
     op.create_index("ix_articles_org_id", "articles", ["org_id"])
     op.create_index("ix_articles_article_plan_id", "articles", ["article_plan_id"])
     op.create_index("ix_articles_status", "articles", ["status"])
-    op.execute("""
-        ALTER TABLE articles ENABLE ROW LEVEL SECURITY;
+    op.execute("ALTER TABLE articles ENABLE ROW LEVEL SECURITY")
+    op.execute(
+        """
         CREATE POLICY articles_org_isolation ON articles
-            USING (org_id = current_setting('app.current_org_id')::uuid);
-    """)
+            USING (org_id = current_setting('app.current_org_id')::uuid)
+        """
+    )
 
 
 def downgrade() -> None:

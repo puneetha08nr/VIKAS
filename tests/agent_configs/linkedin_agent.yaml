@@ -1,0 +1,33 @@
+agent_name: linkedin_agent
+tier: standard
+uses_llm: true
+output_table: linkedin_posts
+has_rls: true
+external_dependency: none
+skip_concurrent: true
+
+happy_path_params:
+  article_id: ~  # null ok — agent generates from brand voice
+  keyword: "ai marketing automation"
+  tone: "professional"
+
+row_count_sql: "SELECT COUNT(*) FROM linkedin_posts WHERE org_id = '{org_id}'"
+expected_min_rows: 0
+idempotent: false
+
+api_read_endpoint: "GET /api/v1/linkedin-posts"
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/linkedin_agent/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /content
+ui_component: "LinkedIn posts tab"
+ui_checklist:
+  - "LinkedIn posts appear in content tab with post preview"
+  - "Hashtags rendered as clickable tags (not raw array)"
+  - "Status badge shows draft/approved"
+  - "Post length shown (character count)"

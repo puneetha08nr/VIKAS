@@ -1,0 +1,35 @@
+agent_name: competitor_monitor
+tier: fast
+uses_llm: false
+output_table: competitors
+has_rls: true
+external_dependency: httpx_sitemap
+# Fetches competitor sitemaps via HTTP. Works with any public URL.
+skip_concurrent: true
+
+happy_path_params:
+  competitors: ["https://ahrefs.com"]
+
+row_count_sql: "SELECT COUNT(*) FROM competitors WHERE org_id = '{org_id}'"
+expected_min_rows: 0
+idempotent: true  # upsert by domain
+
+api_read_endpoint: "GET /api/v1/competitors"
+api_write_endpoint: "POST /api/v1/competitors"
+api_agent_trigger: "POST /api/v1/agents/competitor_monitor/run"
+api_write_body:
+  domain: "test-competitor.com"
+  name: "Test Competitor"
+api_invalid_body: '{"domain": 12345}'
+api_invalid_expected_status: 422
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /competitors
+ui_component: "Competitor list + add competitor form"
+ui_checklist:
+  - "Page /competitors shows competitor list with domain names"
+  - "Adding a new competitor domain — appears in list"
+  - "last_crawled_at timestamp updates after monitor run"
+  - "Delete competitor removes row without page refresh"

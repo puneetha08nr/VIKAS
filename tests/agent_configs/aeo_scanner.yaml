@@ -1,0 +1,32 @@
+agent_name: aeo_scanner
+tier: fast
+uses_llm: false
+output_table: aeo_results
+has_rls: true
+external_dependency: serp_scraper
+skip_concurrent: false
+
+happy_path_params:
+  keyword_ids: []  # fetches keywords from DB
+  domain: "example.com"
+  batch_size: 5
+
+row_count_sql: "SELECT COUNT(*) FROM aeo_results WHERE org_id = '{org_id}'"
+expected_min_rows: 0
+idempotent: false
+
+api_read_endpoint: "GET /api/v1/aeo-results"
+api_write_endpoint: ~
+api_agent_trigger: "POST /api/v1/agents/aeo_scanner/run"
+api_invalid_body: ~
+api_invalid_expected_status: ~
+
+expected_list_fields: []
+expected_nullable_fields: []
+
+ui_page: /keywords
+ui_component: "AEO results tab or widget"
+ui_checklist:
+  - "AEO results show ai_overview boolean per keyword"
+  - "featured_snippet column is true/false (not null)"
+  - "paa_count is numeric (0 or positive)"

@@ -5,7 +5,199 @@ Add the agent/component name, symptom, root cause, and exact fix. This file is t
 
 ---
 
+## Bug Log
+
+### BUG-UI-021 — composite_score exceeds 10.0 for commercial-intent keywords
+
+**Severity:** Low  
+**Component:** `apps/api/agents/seo/opportunity_scorer.py`, `apps/web/src/app/(dashboard)/opportunities/page.tsx`
+
+**Symptom:** "project management software" displayed `composite_score = 10.09` in the UI (bar overflowed to 100.9%, score label showed ">10"). The 0-10 score contract was violated.
+
+**Root cause:** `compute_composite` applies an intent multiplier (1.5× for commercial, 1.3× for transactional) on top of a `weighted_sum` that itself can reach 10.0. Max raw composite = 10.0 × 1.5 = 15.0. No cap existed.
+
+**Fix:**
+- Backend: `composite = round(min(weighted_sum * intent_multiplier, 10.0), 3)` in `compute_composite()`
+- UI: `Math.min(value, 10).toFixed(2)` for the score label in `CompositeScoreBar`
+- DB: one stale row at 10.087 backfilled to 10.0 via `UPDATE opportunities SET composite_score = 10.0 WHERE composite_score > 10.0`
+
+**Test added:** `test_composite_score_capped_at_10` — a perfect commercial keyword (max volume, zero KD, high CPC) must produce `score_range.max <= 10.0`.
+
+**Files changed:**
+- `apps/api/agents/seo/opportunity_scorer.py` — `min(..., 10.0)` in compute_composite
+- `apps/web/src/app/(dashboard)/opportunities/page.tsx` — `Math.min(value, 10)` in label
+- `tests/unit/agents/seo/test_opportunity_scorer.py` — new cap test
+
+---
+
+### BUG-UI-019 — Ollama provider name exposed in validation progress banner
+
+**Severity:** High (internal tooling exposed to users)  
+**Component:** `apps/web/src/app/(dashboard)/keywords/page.tsx`
+
+**Symptom:** When "Validate All" ran, the progress banner showed "Est. 4 min on Ollama." — exposing the LLM provider name to users and implying LLM is used for validation.
+
+**Root cause — two issues:**
+1. Banner had hardcoded `"Est. {Math.ceil(validatingCount * 6 / 60)} min on Ollama."` based on 6s/keyword Ollama latency assumption.
+2. Deeper: `keyword_validator.py` was **actually calling `self.call_llm()`** (step 6 in `execute()`) despite the architecture decision that keyword_validator is a pure rules engine. The LLM call was doing batch validation scoring on top of hard rules — unnecessary and against the spec.
+
+**Fix:**
+- Removed the estimation banner text entirely (no reliable estimate for rules-based agent).
+- Removed the `call_llm()` call from `keyword_validator.execute()`. The agent now validates purely via hard rules: archive if volume<50, kd>9, or navigational intent; validate everything else.
+- Removed `PromptRegistry` and `LLMUnavailableError` imports from the agent.
+- `tokens_used=0, cost_usd=0.0` are now returned correctly.
+- Updated 6 unit tests that were asserting LLM behavior (renamed to reflect pure-rules intent).
+- Legacy LLM helper functions (`_parse_validation_json`, `_batches`) retained in module to avoid breaking test imports; marked as legacy.
+
+**Files changed:**
+- `apps/api/agents/seo/keyword_validator.py` — removed LLM call, simplified execute()
+- `tests/unit/agents/seo/test_keyword_validator.py` — updated 6 tests
+- `apps/web/src/app/(dashboard)/keywords/page.tsx` — removed Ollama estimate text
+
+---
+
+### BUG-A-004 — GET /api/v1/opportunities returns 500 (asyncpg rejects `::uuid[]` cast on bind parameter)
+
+**Severity:** High  
+**Component:** `apps/api/api/v1/dashboard.py` — `list_opportunities()`
+
+**Symptom:** `GET /api/v1/opportunities` always returned HTTP 500 even though 82 rows existed in the DB. The harness B3 check (API auth enforcement) failed because the endpoint crashed before auth logic could return 200.
+
+**Root cause:** The keyword enrichment subquery used:
+```sql
+SELECT id::text, keyword FROM keywords WHERE id = ANY(:ids::uuid[])
+```
+asyncpg's parameter parser sees `:ids::uuid[]` and treats `::uuid[]` as part of the bind-parameter name, producing a `PostgresSyntaxError: syntax error at or near ":"`. This is a known asyncpg limitation — `::` PostgreSQL casts cannot be placed immediately after a SQLAlchemy-style `:param` bind placeholder.
+
+**Fix:** Cast the column side, not the parameter side:
+```sql
+SELECT id::text, keyword FROM keywords WHERE id::text = ANY(:ids)
+```
+`ids` is already a `list[str]` (UUID strings), so comparing against a text array works identically with no cast needed on the bind parameter. asyncpg handles `list[str]` for `ANY(:ids)` without issue.
+
+**Files changed:**
+- `apps/api/api/v1/dashboard.py` line 68 — one-line SQL change
+
+**Verified:** `curl http://localhost:8000/api/v1/opportunities -H "X-Dev-Auth: bypass"` → 200 with 50 opportunities. Harness B3 and B4 now green.
+
+**Pattern to remember:** Never write `:param::type` in asyncpg SQL. Always cast the column (`col::text`) or use ORM `.in_()` instead.
+
+---
+
+### BUG-UI-020 — `llm_estimate` data_source exposed as raw string in keyword table
+
+**Severity:** Medium  
+**Component:** `apps/web/src/app/(dashboard)/keywords/components/KeywordsTable.tsx`
+
+**Symptom:** 122 keywords in DB have `data_source='llm_estimate'` (written before DECISION-001 removed LLM metric estimation). The `DataSourceBadge` component had no case for `llm_estimate` — fell through to the raw-value fallback, showing "llm_estimate" as visible text in the Source column.
+
+**Root cause:** `DataSourceBadge` only handled `'dataforseo'` and `'pending'`; `'llm_estimate'` was a pre-DECISION-001 value that survived in the DB.
+
+**Fix:** Added `|| source === 'llm_estimate'` to the `'pending'` branch in `DataSourceBadge`. Both values now render as the amber "Metrics pending" badge with tooltip "Metrics unavailable. Use Fetch metrics to backfill from DataForSEO." Semantically correct — both states mean real metrics are not yet available.
+
+**Files changed:**
+- `apps/web/src/app/(dashboard)/keywords/components/KeywordsTable.tsx`
+
+---
+
+### BUG-UI-018 — No per-row indication when individual keyword is validating
+
+**Severity:** Medium  
+**Component:** `KeywordsTable.tsx` + `keywords/page.tsx`
+
+**Symptom:** Clicking the row-level "Validate" button gave no feedback on which row was in progress. The global validation banner ("Validating N keywords…") appeared, but no visual change on the specific row being processed.
+
+**Fix:**
+- Added `validatingRowId: string | null` state to `page.tsx`.
+- `handleValidateRow()` sets it immediately when the button is clicked (before the API call completes), clears it on run success/failure.
+- Added `validatingId?: string | null` prop to `KeywordsTable`.
+- When `kw.id === validatingId`: row background → `bg-amber-50`, status badge → amber spinner + "Validating…" text, Validate/Create content buttons hidden.
+- State is independent of `validateRunId` so it only activates for single-row validation, not bulk validate-all.
+
+**Files changed:**
+- `apps/web/src/app/(dashboard)/keywords/components/KeywordsTable.tsx`
+- `apps/web/src/app/(dashboard)/keywords/page.tsx`
+
+---
+
+### BUG-A-003 — keyword_validator: invalid input accepted and queued silently
+
+**Severity:** High  
+**Component:** keyword_validator / `POST /api/v1/keywords/validate`  
+**Harness check:** B5
+
+**Symptom:** Sending `{"keyword_ids": "not-a-list"}` to the validate endpoint returned 202 and silently enqueued a Celery task instead of rejecting with 422. The test harness yaml's `api_write_endpoint` was also pointing at `/validate-all` (which accepts no body), causing the B5 check to test the wrong endpoint entirely.
+
+**Root cause — two issues:**
+1. `ValidateBody.keyword_ids` had no Pydantic-level constraint; the empty-list guard was a manual `if not body.keyword_ids: raise HTTPException` *inside* the handler, which ran after the Celery queue was not yet called but after Pydantic had already accepted bad types.
+2. `tests/agent_configs/keyword_validator.yaml` had `api_write_endpoint: "POST /api/v1/keywords/validate-all"` — that endpoint takes no body at all, so the B5 invalid body was ignored and a 202 was returned.
+
+**Fix:**
+- `ValidateBody.keyword_ids` now uses `Field(min_length=1)` — Pydantic rejects empty lists and wrong types before the handler body runs; FastAPI returns 422 automatically.
+- Removed the now-redundant manual `HTTPException` guard inside `run_validate`.
+- Updated yaml: `api_write_endpoint` → `"POST /api/v1/keywords/validate"` (the endpoint that actually parses a body with `keyword_ids`).
+- Yaml: `uses_llm: false` (A7 false failure — keyword_validator is a pure rules engine; `tokens_in=0` is correct behaviour, not a bug).
+
+**Files changed:**
+- `apps/api/api/v1/keywords.py` — `Field(min_length=1)` on `ValidateBody`, removed manual guard
+- `tests/agent_configs/keyword_validator.yaml` — `uses_llm: false`, `api_write_endpoint` fixed, `skip_concurrent: false`
+
+---
+
+## Architectural Decisions
+
+### DECISION-001 — Removed LLM metric estimation for keywords
+
+**Date:** 2026-05-06  
+**Status:** ✅ Implemented
+
+**Decision:** Removed `_llm_keyword_fallback()` from `keyword_research.py`. LLM-estimated SEO metrics (volume, KD, CPC) are no longer saved for any keywords.
+
+**Reason:** LLM-estimated SEO metrics create false confidence. Volume, KD, and CPC are empirical measurements — an LLM cannot know actual Google search counts, advertiser bid prices, or competition density. Presenting LLM guesses as metrics misleads the user into making real editorial decisions on invented numbers. Industry standard is NULL metrics with a pending state until real API data is available.
+
+**New behaviour:**
+- DataForSEO succeeds → keywords saved with real metrics, `data_source='dataforseo'`
+- DataForSEO fails → keywords saved from Google Suggest with `volume=NULL, kd=NULL, cpc=NULL, data_source='pending'`
+- UI shows amber "Metrics pending" badge for pending keywords; volume/KD/CPC columns show "—"
+- "Fetch metrics" button appears when pending keywords exist → calls `POST /api/v1/keywords/fetch-metrics` → backfills from DataForSEO once configured
+
+**Files changed:**
+- `apps/api/agents/seo/keyword_research.py` — removed `_llm_keyword_fallback()`, inline pending fallback, NULL-safe metric handling in `_save_keywords`
+- `apps/api/core/contracts.py` — `_KeywordMetricsMixin.data_source` default changed `"llm_estimate"` → `"pending"`
+- `apps/api/db/models/keywords.py` — `server_default` changed `"llm_estimate"` → `"pending"`
+- `apps/api/api/v1/keywords.py` — added `POST /fetch-metrics` endpoint
+- `apps/web/src/lib/api.ts` — added `api.keywords.fetchMetrics()`
+- `apps/web/src/app/(dashboard)/keywords/components/KeywordsTable.tsx` — `DataSourceBadge` handles `"pending"` → amber badge
+- `apps/web/src/app/(dashboard)/keywords/page.tsx` — "Fetch metrics (N)" button in header
+
+---
+
 ## keyword_research agent
+
+### BUG-A-001 — DataForSEO 403 not caught by fallback; agent returns failed instead of degrading
+
+**Severity:** High  
+**Status:** ✅ FIXED
+
+**Symptom:** DataForSEO returns 403 Forbidden (zero account balance). Agent status = `failed` instead of falling back to LLM estimates with `data_source = llm_estimate`.
+
+**Root cause (two parts):**
+1. The agent's `except IntegrationError` block (lines 49-62) returned `status="failed"` immediately — there was no fallback path at all. The `data_source` field was also hardcoded as `'dataforseo'` in `_save_keywords`, making it impossible to tag keywords from other sources.
+2. Note: the base integration layer was NOT the bug — `base.py` correctly converts 403 → `httpx.HTTPStatusError` → `IntegrationError`. The `IntegrationError` was being caught; it just wasn't being handled correctly.
+
+**Fix:**
+- `keyword_research.py`: replaced the `return AgentResult(status="failed")` with a call to `_llm_keyword_fallback()`. When DataForSEO raises any `IntegrationError`, the agent now: (a) fetches suggestions from Google Suggest (free, no auth), (b) calls the LLM to estimate volume/KD/CPC/intent, (c) saves with `data_source='llm_estimate'`, (d) returns `status='partial'`.
+- Added double-resilience: if the LLM itself also fails (no keys, quota), bare Google Suggest keywords are saved with default metrics rather than crashing.
+- `_save_keywords()`: added `data_source` parameter (default `'dataforseo'`) to allow LLM-estimated rows to be tagged correctly.
+- `_test_agent_runner.py`: increased happy-path CLI timeout from 60s → 180s for `uses_llm: true` agents (LLM calls can take 60-160s on cold start with provider fallback).
+- Updated unit tests: `test_dataforseo_error_results_in_failed_status` and `test_dataforseo_error_message_is_descriptive` replaced with `test_dataforseo_error_triggers_llm_fallback` and `test_dataforseo_403_triggers_llm_fallback` — both verify `status=partial` and `data_source=llm_estimate`.
+
+**Verification:**
+- A7: `status=partial, duration=159436ms, tokens_in=268, tokens_out=825, cost=$0.0000, error=None`
+- DB: keywords written with `data_source='llm_estimate'`
+- `./scripts/test_agent.sh keyword_research` → ✅ ALL CHECKS PASSED
+
+---
 
 ### Issue 1 — LLM returned plain string array, keywords_found=9 but 0 DB rows
 **Symptom:** `AgentResult` reported `keywords_found: 9`, `status: success`, but `SELECT COUNT(*) FROM keywords` returned 0.
@@ -440,7 +632,39 @@ from rag.embeddings import EmbeddingGenerator  # must be module-level for patch(
 
 **Fix:** After running `ruff --fix`, always run `git add -p` (or `git status` + `git add`) to stage the auto-fixed files, then commit them before pushing.
 
-**Rule:** `ruff --fix` modifies files in-place. Check `git status` after running it. If modified files appear, they must be staged and committed. Never push after `ruff --fix` without first verifying `git status` shows nothing unstaged.
+---
+
+## Frontend / UI
+
+### BUG-UI-003 — brand_voice_keeper: style_rules and target_audience fields missing from Settings page
+
+**Agent:** brand_voice_keeper  
+**Layer:** C — UI  
+**Check:** C2 Form fields  
+**Severity:** Medium  
+**Discovered:** 2026-05-06 via test harness UI checklist review  
+
+**Symptom:** The `/settings` Brand Voice form does not expose the `style_rules` object or a `target_audience` field. Users who want to set style rules (e.g. `max_sentence_length`, `prefer_active_voice`, `oxford_comma`) or specify a target audience have no way to do so through the UI. The values can only be written via the CLI or direct API call.
+
+**Root cause:** The `brand_voice` DB schema stores `style_rules` as a JSONB object with arbitrary keys, and the `BrandVoiceKeeperAgent` accepts `style_rules` as a parameter. However, the Settings page component (`apps/web`) was built with only `tone`, `vocabulary`, and `banned_phrases` form fields. The `style_rules` key was known at design time but deferred as a "later" addition and never implemented. `target_audience` is not a current DB column — it would need a migration if added.
+
+**Impact:**
+- `style_rules` values set via CLI/API are **not corrupted** on UI save — the `PUT /api/v1/brand-voice` handler uses `if body.style_rules is not None` guard, so omitting style_rules from the request body preserves the existing DB value silently.
+- Users have no visibility into which style rules are currently active — they cannot read them from the UI.
+- Users cannot edit style rules from the UI — the only paths are CLI agent run or direct API call.
+- Any content agent that reads `style_rules` for prompt injection receives empty rules for orgs that have only ever used the UI (since they've never been able to set them).
+
+**Fix required:**
+1. `apps/web` — Add `style_rules` as an editable key-value section in the Brand Voice settings form. Each style rule should be an add/remove pair (key + value). Use the `PUT /api/v1/brand-voice` endpoint — it already accepts `style_rules`.
+2. Decide whether `target_audience` is a first-class column (requires Alembic migration + agent param support) or a key inside `style_rules` (no migration needed — just a convention). Add the corresponding form field once decided.
+3. Ensure the PUT handler merges incoming `style_rules` with existing ones (currently it replaces entirely on PUT — verify this is acceptable).
+
+**UI checklist items added to brand_voice_keeper config:**
+- `[ ] Style rules section renders key-value pairs, not raw JSON blob`
+- `[ ] Target audience field is visible`
+- `[ ] Target audience accepts free text`
+
+**Status:** Open — fix not yet implemented.
 
 ---
 
@@ -521,5 +745,152 @@ banned_phrases: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::j
 (`anyio` was already a transitive dependency via FastAPI/Starlette but added explicitly since `video_upload.py` uses it directly.)
 
 **Rule:** Any `import X` in the codebase — including lazy imports inside functions — must have the corresponding package in `apps/api/pyproject.toml`. Add the dependency in the **same commit** as the import. Never rely on transitive installs for packages you import directly.
+
+---
+
+## Competitors page — UI bugs (found 2026-05-06, competitor_monitor test harness)
+
+### BUG-UI-005 — Domain stored with https:// prefix
+
+**Agent:** competitor_monitor  
+**Layer:** C — UI / B — API  
+**Severity:** Medium  
+**Status:** ✅ FIXED
+
+**Symptom:** Adding `https://monday.com` stored `https://monday.com` in DB instead of `monday.com`. Duplicate check then failed because `https://monday.com` ≠ `monday.com`.
+
+**Root cause:** `handleSubmit` in `AddCompetitorForm` stripped `https://` but did not strip `www.` or path components. Existing rows in DB had inconsistent formats.
+
+**Fix:**
+- Added `normaliseDomain()` function: strips protocol, `www.`, and any path components.
+- Applied to form submit before API call.
+- Cleaned existing dirty rows in DB via `regexp_replace`.
+
+---
+
+### BUG-UI-006 — Duplicate competitors not detected
+
+**Agent:** competitor_monitor  
+**Layer:** C — UI  
+**Severity:** Medium  
+**Status:** ✅ FIXED
+
+**Symptom:** Adding the same domain twice (e.g. once as `https://monday.com`, once as `monday.com`) showed no warning — both attempts hit the API, and the server returned a conflict which surfaced as a generic error, not a user-facing duplicate message.
+
+**Root cause:** No client-side duplicate check before the API call. Normalisation mismatch compounded the problem.
+
+**Fix:**
+- `AddCompetitorForm` now receives `existingDomains` prop (list of normalised domains from current query state).
+- Before submitting, normalises input and checks against `existingDomains`.
+- Shows inline message: `"{domain} is already being tracked."` — no API call made.
+
+---
+
+### BUG-UI-009 — No crawl status indicator in competitors list
+
+**Agent:** competitor_monitor  
+**Layer:** C — UI  
+**Severity:** Low  
+**Status:** ✅ FIXED
+
+**Symptom:** "Last Crawled" column showed raw `timeAgo()` string or "never" — no visual distinction between domains that had been crawled vs never crawled.
+
+**Root cause:** Column was plain text with no styling or status semantics.
+
+**Fix:**
+- Added `CrawlStatus` component: green dot + "Done · {time ago}" when crawled; grey "Never crawled" when `last_crawled_at` is null.
+- Renamed column header "Last Crawled" → "Status".
+- Added `crawl_status VARCHAR(20) DEFAULT 'never'` column via Alembic migration `g0h1i2j3k4l5` (reserved for future real-time queue status; UI derives display from `last_crawled_at` for now).
+
+---
+
+### BUG-UI-010 — Content tab empty state not distinguishing no-data vs no-search-match
+
+**Agent:** competitor_monitor  
+**Layer:** C — UI  
+**Severity:** Low  
+**Status:** ✅ FIXED
+
+**Symptom:** Content tab showed a single empty message regardless of whether the org had no extracted content at all, or whether a search filter had no matches.
+
+**Fix:**
+- Two distinct empty states:
+  - `competitorContent.length === 0` → "No competitor content extracted yet. Run competitor monitor to start crawling."
+  - `filteredContent.length === 0` (search active, data exists) → "No results match your search."
+- Tab switch now resets `contentSearch` to `''` so content tab always opens unfiltered.
+
+---
+
+## Keywords page — UI bugs (found 2026-05-06, Layer 3 keyword_research testing)
+
+### BUG-UI-013 — Duplicate keyword rows in DB and table
+
+**Layer:** A — Agent / C — UI  
+**Severity:** Medium  
+**Status:** ✅ FIXED
+
+**Symptom:** Same keyword text appeared multiple times in the keywords table (e.g. "project management software reviews" × 3). Each agent run inserted fresh rows regardless of whether the keyword already existed.
+
+**Root cause:** `keywords` table had no unique constraint on `(org_id, keyword)`. The `ON CONFLICT DO NOTHING` in the INSERT referred only to the primary key (UUID), so every run created a new row.
+
+**Fix:**
+- Deleted 14 duplicate rows (kept earliest `created_at` per `org_id + keyword` pair).
+- Added `UNIQUE (org_id, keyword)` constraint via Alembic migration `h1i2j3k4l5m6` (includes dedup logic in the migration body).
+- Updated `keyword_research.py` INSERT: `ON CONFLICT DO NOTHING` → `ON CONFLICT (org_id, keyword) DO NOTHING` so the explicit conflict target is clear.
+
+---
+
+### BUG-UI-016 — KD colour thresholds missing orange tier
+
+**Layer:** C — UI  
+**Severity:** Low  
+**Status:** ✅ FIXED
+
+**Symptom:** `Difficulty` component (KeywordsTable.tsx) only had three bands: green / amber / red. No orange tier. KD 4 was showing green (boundary was `<= 4`, should be `< 4`).
+
+**Fix:** Updated colour logic in `Difficulty` component:
+- `KD < 4` → green (`#16A34A` / `text-green-700`)
+- `KD 4–<7` → yellow (`#CA8A04` / `text-yellow-700`)
+- `KD 7–9` → orange (`#EA580C` / `text-orange-600`)
+- `KD > 9` → red (`#DC2626` / `text-red-700`)
+
+---
+
+### BUG-UI-017 — Agent runs always displayed green; no last-success indicator
+
+**Layer:** C — UI  
+**Severity:** Low  
+**Status:** ✅ FIXED
+
+**Symptom:** `KeywordDrawer` showed all agent run rows with a green badge regardless of actual status. A failed run looked identical to a successful one. No way to tell at a glance whether data was still valid.
+
+**Fix:**
+- Added "Last successful: {time ago}" banner in green above the runs list (only shown if at least one success/partial run exists).
+- Run badge now uses status: `success|partial` → green dot; all other statuses → grey dot + grey text. Failed runs are never shown in red (they're informational, not alarming — data persists from prior successful run).
+
+---
+
+### BUG-API-001 — No domain validation on add competitor; unreachable domains accepted
+
+**Agent:** competitor_monitor  
+**Layer:** B — API  
+**Severity:** Medium  
+**Status:** ✅ FIXED
+
+**Symptom:** `POST /api/v1/competitors` accepted any string as a domain — including nonexistent domains (`notareal-domain-xyz123.com`), bare labels (`not-a-domain`), and garbage strings. Invalid rows accumulated in the `competitors` table and the agent then tried to crawl them on every run.
+
+**Root cause:** `add_competitor` only stripped protocol prefix and checked for empty string. No format validation, no DNS check.
+
+**Fix:**
+1. Regex format check — `_DOMAIN_RE` requires valid hostname characters with at least one dot and a real TLD.
+2. Async DNS resolution — `_domain_resolves()` calls `loop.getaddrinfo()`. If the domain doesn't resolve, returns 422 with `"'{domain}' could not be resolved — check the domain and try again"`.
+3. DB unique constraint violation now returns 409 instead of an unhandled 500.
+4. `api.ts` — added axios response interceptor that extracts FastAPI `detail` field and sets it as `Error.message`, so frontend `catch` blocks see the human-readable server message.
+5. DB cleanup: deleted `notareal-domain-xyz123.com` row that was already stored.
+
+**Error responses:**
+- Bad format → 422 `"'{domain}' is not a valid domain name"`
+- No DNS → 422 `"'{domain}' could not be resolved — check the domain and try again"`
+- Duplicate → 409 `"'{domain}' is already being tracked"`
 
 ---
