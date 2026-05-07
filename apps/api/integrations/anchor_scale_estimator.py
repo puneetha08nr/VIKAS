@@ -176,7 +176,7 @@ def _pytrends_sync(keywords: list[str]) -> dict[str, float]:
             if df is not None and not df.empty:
                 for kw in batch:
                     if kw in df.columns:
-                        scores[kw] = float(df[kw].mean())
+                        scores[kw] = float(df[kw].mean())  # type: ignore[arg-type]
         except Exception as exc:
             logger.warning(
                 "anchor_scale_estimator: pytrends batch %d failed: %s", i // 4, exc
