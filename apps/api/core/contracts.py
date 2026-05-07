@@ -272,23 +272,6 @@ class ArticleOutput(BaseModel):
         return str(v).strip() if v else ""
 
 
-class ContentDirectorOutput(BaseModel):
-    """Output contract for content_director agent."""
-    opportunity_id: str
-    keyword: str
-    formats_dispatched: list[str] = []
-    content_item_ids: list[str] = []
-    items_created: int = 0
-
-    @field_validator("items_created", mode="before")
-    @classmethod
-    def _coerce_count(cls, v: object) -> int:
-        try:
-            return max(0, int(v))  # type: ignore[arg-type]
-        except (ValueError, TypeError):
-            return 0
-
-
 class LinkedInPostOutput(BaseModel):
     """Output contract for linkedin_agent."""
     content_item_id: str
@@ -835,9 +818,3 @@ class PreferenceLearnerOutput(BaseModel):
     preferences_written: int = 0
 
 
-# ── Legacy aliases (kept for backwards compatibility) ─────────────────────────
-ArticlePlanOutput = ArticlePlannerOutput
-ArticleOutput = ArticleWriterOutput
-WordPressPublishOutput = WordPressPublisherOutput
-DocumentIngestionOutput = DocumentIngesterOutput
-RAGSearchOutput = RagSearcherOutput

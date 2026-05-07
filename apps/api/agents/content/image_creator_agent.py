@@ -39,10 +39,15 @@ class ImageCreatorAgent(BaseAgent):
 
         item = await _fetch_content_item(content_item_id, ctx.org_id, ctx.db)
         if item is None:
-            return AgentResult(status="failed", error=f"content_item {content_item_id} not found for this org")
+            return AgentResult(
+                status="failed", error=f"content_item {content_item_id} not found for this org"
+            )
 
         if item["format"] != "article":
-            return AgentResult(status="failed", error=f"image_creator_agent handles format=article items, got {item['format']}")
+            return AgentResult(
+                status="failed",
+                error=f"image_creator_agent handles format=article items, got {item['format']}",
+            )
 
         keyword = item["keyword"]
         use_case = str(ctx.params.get("image_use_case", _DEFAULT_USE_CASE))
@@ -74,7 +79,9 @@ class ImageCreatorAgent(BaseAgent):
                 image_url="",
             )
         except ValidationError as exc:
-            return AgentResult(status="failed", error=f"image prompt failed contract validation: {exc}")
+            return AgentResult(
+                status="failed", error=f"image prompt failed contract validation: {exc}"
+            )
 
         if not output.prompt:
             return AgentResult(status="failed", error="LLM returned empty image prompt")
@@ -139,12 +146,16 @@ async def _generate_image_dalle(prompt: str, aspect_ratio: str) -> str:
         quality="standard",
         n=1,
     )
+    if not response.data:
+        return ""
     return response.data[0].url or ""
 
 
 # ── DB helpers ─────────────────────────────────────────────────────────────────
 
-async def _fetch_content_item(content_item_id: str, org_id: str, db: AsyncSession) -> dict[str, Any] | None:
+async def _fetch_content_item(
+    content_item_id: str, org_id: str, db: AsyncSession
+) -> dict[str, Any] | None:
     result = await db.execute(
         text("""
             SELECT ci.id, ci.format, ci.title, ci.opportunity_id, k.keyword
@@ -158,7 +169,10 @@ async def _fetch_content_item(content_item_id: str, org_id: str, db: AsyncSessio
     row = result.fetchone()
     if row is None:
         return None
-    return {"id": str(row[0]), "format": str(row[1]), "title": str(row[2]), "opportunity_id": str(row[3]), "keyword": str(row[4])}
+    return {
+        "id": str(row[0]), "format": str(row[1]), "title": str(row[2]),
+        "opportunity_id": str(row[3]), "keyword": str(row[4]),
+    }
 
 
 async def _write_item(content_item_id: str, body: str, db: AsyncSession) -> None:

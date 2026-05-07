@@ -7,28 +7,29 @@ from sqlalchemy import select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import agents.competitor.competitor_monitor  # noqa: F401
+import agents.competitor.content_extractor  # noqa: F401
+import agents.competitor.keyword_overlap_analyzer  # noqa: F401
+import agents.content.article_planner  # noqa: F401
+import agents.content.article_writer  # noqa: F401
+import agents.content.content_director  # noqa: F401
+import agents.content.image_creator_agent  # noqa: F401
+import agents.content.lead_magnet_agent  # noqa: F401
+import agents.content.linkedin_agent  # noqa: F401
+import agents.content.newsletter_agent  # noqa: F401
+import agents.content.twitter_agent  # noqa: F401
+import agents.content.video_script_agent  # noqa: F401
+import agents.knowledge.brand_voice_keeper  # noqa: F401
+import agents.seo.gap_analyzer  # noqa: F401
+
 # Import agent modules to ensure @register decorators have run before any
 # call to agent_registry.list_agents() — add new agents here as they are built.
 import agents.seo.keyword_research  # noqa: F401
 import agents.seo.keyword_validator  # noqa: F401
 import agents.seo.opportunity_scorer  # noqa: F401
-import agents.seo.trend_collector  # noqa: F401
-import agents.seo.gap_analyzer  # noqa: F401
 import agents.seo.rank_tracker  # noqa: F401
 import agents.seo.site_auditor  # noqa: F401
-import agents.competitor.competitor_monitor  # noqa: F401
-import agents.competitor.content_extractor  # noqa: F401
-import agents.competitor.keyword_overlap_analyzer  # noqa: F401
-import agents.knowledge.brand_voice_keeper  # noqa: F401
-import agents.content.content_director  # noqa: F401
-import agents.content.article_planner  # noqa: F401
-import agents.content.article_writer  # noqa: F401
-import agents.content.linkedin_agent  # noqa: F401
-import agents.content.twitter_agent  # noqa: F401
-import agents.content.newsletter_agent  # noqa: F401
-import agents.content.video_script_agent  # noqa: F401
-import agents.content.lead_magnet_agent  # noqa: F401
-import agents.content.image_creator_agent  # noqa: F401
+import agents.seo.trend_collector  # noqa: F401
 from api.deps import get_current_org, get_db_for_org
 from core import agent_registry
 from core.task_queue import AgentCommand, dispatch

@@ -285,7 +285,9 @@ async def update_linkedin_post(
     db: AsyncSession = Depends(get_db_for_org),
 ) -> dict:
     new_status = body.get("status", "draft")
-    mock_url = f"https://linkedin.com/posts/mock-{post_id[:8]}" if new_status == "published" else None
+    mock_url = (
+        f"https://linkedin.com/posts/mock-{post_id[:8]}" if new_status == "published" else None
+    )
     sets = "status = :status, updated_at = now()"
     params: dict = {"id": post_id, "org_id": str(org.id), "status": new_status}
     if mock_url:
@@ -307,14 +309,19 @@ async def update_twitter_thread(
     db: AsyncSession = Depends(get_db_for_org),
 ) -> dict:
     new_status = body.get("status", "draft")
-    mock_url = f"https://twitter.com/mock/status/{thread_id[:8]}" if new_status == "published" else None
+    mock_url = (
+        f"https://twitter.com/mock/status/{thread_id[:8]}" if new_status == "published" else None
+    )
     sets = "status = :status, updated_at = now()"
     params: dict = {"id": thread_id, "org_id": str(org.id), "status": new_status}
     if mock_url:
         sets += ", published_url = :url"
         params["url"] = mock_url
     await db.execute(
-        text(f"UPDATE twitter_threads SET {sets} WHERE id = CAST(:id AS uuid) AND org_id = :org_id"),
+        text(
+            f"UPDATE twitter_threads SET {sets}"
+            " WHERE id = CAST(:id AS uuid) AND org_id = :org_id"
+        ),
         params,
     )
     await db.commit()
@@ -329,7 +336,9 @@ async def update_newsletter(
     db: AsyncSession = Depends(get_db_for_org),
 ) -> dict:
     new_status = body.get("status", "draft")
-    mock_url = f"https://mail.mock/campaigns/{newsletter_id[:8]}" if new_status == "published" else None
+    mock_url = (
+        f"https://mail.mock/campaigns/{newsletter_id[:8]}" if new_status == "published" else None
+    )
     sets = "status = :status, updated_at = now()"
     params: dict = {"id": newsletter_id, "org_id": str(org.id), "status": new_status}
     if mock_url:
