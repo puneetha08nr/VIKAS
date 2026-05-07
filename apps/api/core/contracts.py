@@ -110,7 +110,7 @@ class OpportunityOutput(BaseModel):
     source: str = "keyword_research"
     search_score: float
     competitive_gap_score: float
-    trend_score: float
+    trend_score: float | None = None  # NULL until a real trend signal is available
     engagement_score: float
     composite_score: float
     status: str = "new"
