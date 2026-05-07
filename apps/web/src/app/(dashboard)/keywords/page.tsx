@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query'
-import { api } from '@/lib/api'
+import { api, axiosInstance } from '@/lib/api'
 import { mockKeywordStats, KW_CLUSTERS } from '@/lib/mocks'
 import { KpiStrip } from './components/KpiStrip'
 import { KeywordsTable } from './components/KeywordsTable'
@@ -248,6 +248,25 @@ export default function KeywordsPage() {
     }
   }
 
+<<<<<<< HEAD
+  const handleCreateContent = async (keyword: KeywordRow) => {
+    setApiError(null)
+    setSuccessMessage(null)
+    try {
+      // Find the opportunity for this keyword then trigger content_director
+      const opportunities = await api.opportunities.list({ limit: 200 })
+      const opp = opportunities.find((o: any) => o.keyword_id === keyword.id)
+      if (!opp) {
+        setApiError(`No opportunity found for "${keyword.keyword}" — run opportunity scorer first`)
+        return
+      }
+      await axiosInstance.post('/api/v1/agents/content_director/run', {
+        params: { opportunity_id: opp.id },
+      })
+      setSuccessMessage(`Content pipeline started for "${keyword.keyword}" — check Content page in ~15 min`)
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : 'Failed to start content pipeline')
+=======
   const handleFetchMetrics = async () => {
     setIsFetchingMetrics(true)
     setApiError(null)
@@ -264,6 +283,7 @@ export default function KeywordsPage() {
       setApiError(err instanceof Error ? err.message : 'Failed to fetch metrics — is DataForSEO configured?')
     } finally {
       setIsFetchingMetrics(false)
+>>>>>>> origin/master
     }
   }
 
@@ -524,6 +544,20 @@ export default function KeywordsPage() {
         </div>
       </div>
 
+<<<<<<< HEAD
+      {/* Table */}
+      <KeywordsTable
+        keywords={rows}
+        loading={kwLoading}
+        selectedIds={selectedIds}
+        onSelectToggle={toggleSelect}
+        onSelectAll={toggleSelectAll}
+        onRowClick={setOpenKeyword}
+        onValidate={handleValidateRow}
+        onCreateContent={handleCreateContent}
+        clusters={KW_CLUSTERS}
+      />
+=======
       {/* ── Table ────────────────────────────────────────────────────────────── */}
       <div className="mt-4">
         <KeywordsTable
@@ -538,6 +572,7 @@ export default function KeywordsPage() {
           validatingId={validatingRowId}
         />
       </div>
+>>>>>>> origin/master
 
       {/* ── Pagination ───────────────────────────────────────────────────────── */}
       {totalPages > 1 && (

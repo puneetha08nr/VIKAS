@@ -76,28 +76,26 @@ Primary keyword: KEYWORD
 Brand voice: BRAND_VOICE
 Relevant knowledge context: KNOWLEDGE_CHUNKS
 
-Return ONLY JSON with these exact fields, no markdown, no explanation:
-{
-  "title": "SEO-optimized H1 title under 65 chars",
-  "meta_description": "150-160 char meta desc with keyword and hook",
-  "word_count_target": 1800,
-  "content_angle": "unique angle that differentiates this article",
-  "cta": "one clear call to action",
-  "outline": [
-    {"h2": "Section Title", "detail": "2-3 sentences on what to cover"},
-    {"h2": "Another Section", "detail": "2-3 sentences on what to cover"}
-  ]
-}
+Return ONLY a JSON object, no markdown, no explanation:
+{"title": "H1 title under 65 chars", "meta_description": "150-160 chars with keyword", "word_count_target": 1800, "content_angle": "unique angle", "cta": "call to action", "outline": [{"h2": "Section Title", "detail": "what to cover in 2 sentences", "h3s": []}, {"h2": "Another Section", "detail": "what to cover", "h3s": ["Subsection A"]}]}
+
+Example:
+{"title": "10 Best AI Marketing Tools in 2025", "meta_description": "Discover the top AI marketing tools that save time and boost ROI.", "word_count_target": 1800, "content_angle": "Practical guide for non-technical marketers", "cta": "Start your free trial", "outline": [{"h2": "What Are AI Marketing Tools?", "detail": "Define AI marketing tools and explain why they matter for modern teams.", "h3s": []}, {"h2": "Top 10 AI Marketing Tools", "detail": "Review each tool with pros, cons, and pricing.", "h3s": ["Content Creation", "SEO Tools"]}]}
+
+Do not write the article. Return the JSON only.\
 """,
 
     "article_writer": """\
-You are writing one section of an SEO-optimized article.
+You are writing one section of an SEO-optimized article. Write only the HTML body of this section.
 
-Writing standards:
-- Active voice; sentences under 25 words where possible
-- Practical examples, not just theory
-- Short paragraphs (3-4 sentences max)
+Rules:
+- Write in active voice, sentences under 25 words
+- Use practical examples, not just theory
+- Short paragraphs (3-4 sentences max), use bullet lists for 4+ items
+- No filler phrases: "In today's world", "It goes without saying"
+- End with a concrete takeaway the reader can act on
 - Do NOT include the H2 heading — it will be added automatically
+- Return ONLY the HTML (p tags, ul/ol, em, strong). No JSON. No markdown. No explanation.
 
 Section to write: SECTION_TITLE
 Article title: ARTICLE_TITLE
@@ -106,30 +104,215 @@ Brand voice: BRAND_VOICE
 Section outline: SECTION_OUTLINE
 Relevant knowledge: KNOWLEDGE_CHUNKS
 Internal link placeholders: INTERNAL_LINKS
-Target word count for this section: WORD_COUNT words
-
-Return ONLY the HTML body of this section (p tags, ul/ol, em, strong). No JSON wrapper.
+Target word count for this section: WORD_COUNT words\
 """,
 
     "linkedin_agent": """\
-You are writing a LinkedIn post from an article. Drive engagement and show expertise.
+You are writing a LinkedIn post that drives engagement and positions the author as
+a credible expert in their field.
 
-Formula:
-1. Hook (line 1): bold statement or surprising statistic — no fluff
-2. Setup (2-3 lines): why this matters
-3. Value (5-8 lines): specific insight or lesson from the article
-4. Takeaway (1-2 lines): one actionable conclusion
-5. CTA (final line): question to drive comments
+LinkedIn post formula:
+1. Hook (line 1): bold statement, surprising statistic, or provocative question — no fluff
+2. Setup (lines 2-4): expand on the hook, establish why this matters
+3. Value (lines 5-12): the actual insight, lesson, or story — be specific, not generic
+4. Takeaway (lines 13-15): one clear, actionable conclusion the reader can apply today
+5. Call to action (final line): question to drive comments OR soft CTA to relevant content
 
-Rules: single-sentence paragraphs for hook/takeaway, max 2-sentence paragraphs elsewhere,
-2-3 hashtags at end, no "I'm excited to share" openers.
+Formatting rules:
+- Single-sentence paragraphs for the hook and takeaway
+- Max 2-sentence paragraphs elsewhere — white space is engagement
+- No hashtag stuffing: 2-3 relevant hashtags maximum, placed at the end
+- Emojis: optional, use sparingly (0-2 max) — only if they add clarity
+- No "I'm excited to share" or "Thrilled to announce" openers
+
+Voice: professional but human. Write like a smart colleague talking, not a press release.
+
+Source content:
+SOURCE_CONTENT
+
+Primary keyword: PRIMARY_KEYWORD
+Target audience: TARGET_AUDIENCE
+
+Return ONLY a JSON object, no markdown, no explanation:
+{"post_text": "full linkedin post text here", "hashtags": ["aimarketing", "seo"], "estimated_reach_tier": "medium"}
+
+estimated_reach_tier must be one of: low, medium, high
+
+Example:
+{"post_text": "Most marketers are wasting 60% of their content budget.\n\nHere is why...\n\nThe real issue is not the tools — it is the strategy.", "hashtags": ["contentmarketing", "aitools"], "estimated_reach_tier": "high"}\
+""",
+
+    "video_script_agent": """\
+You are writing a video script for a short-form educational marketing video (3-5 minutes).
+
+Script structure:
+1. Hook (0-15s): one sentence that stops the scroll — bold claim or surprising question
+2. Intro (15-30s): who this is for and what they will learn
+3. Main sections (30s-4min): 4-6 scenes, each covering one key point
+4. CTA (final 20s): one clear action for the viewer to take
+
+Scene format for each section:
+- Scene number and title
+- Narration: exact words the presenter says (natural, conversational)
+- Visual: what appears on screen (slides, screen recordings, animations, talking head)
+- B-roll notes: supplementary footage suggestions
+- Duration: estimated seconds
+
+Script rules:
+- Write narration how people actually speak — short sentences, contractions OK
+- One idea per scene — do not cram multiple points
+- Visual descriptions must be specific enough for a video editor to execute
+- No filler phrases: "In this video I will show you..."
+
+Source content:
+SOURCE_CONTENT
+
+Primary keyword: PRIMARY_KEYWORD
+Target video length: TARGET_DURATION seconds
+
+Return ONLY a JSON object, no markdown, no explanation:
+{"title": "video title", "total_duration_seconds": 180, "scenes": [{"scene_number": 1, "title": "Hook", "narration": "text", "visual": "description", "b_roll": "notes", "duration_seconds": 15}], "cta": "call to action text"}
+
+Example scene:
+{"scene_number": 1, "title": "Hook", "narration": "You are spending 10 hours a week on marketing tasks AI can do in 10 minutes.", "visual": "Text overlay on dark background: 10 hours → 10 minutes", "b_roll": "Time-lapse of person working at desk", "duration_seconds": 12}\
+""",
+
+    "lead_magnet_agent": """\
+You are creating a high-value lead magnet that captures email addresses by solving a specific problem.
+
+Lead magnet types (pick the best fit for the keyword):
+- Checklist: step-by-step action items (best for process topics)
+- Template: fill-in-the-blank framework (best for strategy topics)
+- Mini-guide: 5-7 page PDF with practical depth (best for educational topics)
+- Swipe file: collection of examples/scripts (best for copywriting topics)
+
+Structure requirements:
+1. Title: outcome-focused, under 60 chars — what the reader GETS, not what it IS
+2. Subtitle: one sentence expanding on the value promise
+3. Introduction: 2-3 sentences on the problem this solves
+4. Sections: 4-8 sections, each with a title and 3-5 actionable bullet points
+5. Bonus tip: one advanced insight that makes it feel premium
+6. CTA page: what to do next (visit site, book call, etc.)
+
+Quality bar:
+- Every bullet must be actionable — no vague advice
+- Include specific numbers, tools, or examples where possible
+- Reader should be able to use this immediately without buying anything
+
+Source content:
+SOURCE_CONTENT
+
+Primary keyword: PRIMARY_KEYWORD
+Target audience: TARGET_AUDIENCE
+
+Return ONLY a JSON object, no markdown, no explanation:
+{"title": "lead magnet title", "subtitle": "value promise", "format": "checklist/template/mini-guide/swipe-file", "introduction": "problem statement", "sections": [{"title": "section title", "bullets": ["actionable point 1", "actionable point 2"]}], "bonus_tip": "advanced insight", "cta": "next step"}
+
+Example:
+{"title": "The AI Marketing Checklist", "subtitle": "50 tasks you can automate starting today", "format": "checklist", "introduction": "Most marketing teams waste 60% of their time on tasks AI handles better.", "sections": [{"title": "Content Creation", "bullets": ["Use Claude Sonnet for first drafts", "Generate 10 headline variants in 30 seconds"]}], "bonus_tip": "Batch all AI tasks on Monday mornings for 3x efficiency.", "cta": "Download our full AI marketing toolkit at vikas.ai"}\
+""",
+
+    "image_creator_agent": """\
+You are writing a detailed image generation prompt for a marketing visual.
+
+The prompt will be sent directly to DALL-E 3 or Midjourney to generate an image.
+Write a prompt that produces a professional, brand-appropriate marketing image.
+
+Prompt requirements:
+1. Subject: what is in the image (people, objects, abstract concepts)
+2. Style: photorealistic / flat illustration / 3D render / infographic
+3. Mood: the emotional tone (professional, energetic, calm, innovative)
+4. Composition: foreground, background, focal point
+5. Colors: primary palette (avoid neon unless brand uses it)
+6. Text overlays: if any text should appear in the image
+7. Negative prompt: what to avoid (clutter, watermarks, distorted faces)
+
+Marketing image rules:
+- No copyrighted logos or brand names
+- Faces should be diverse and professional
+- Avoid clichéd stock photo poses (handshakes, pointing at whiteboards)
+- Prefer clean, modern aesthetics that work at multiple sizes
 
 Article title: ARTICLE_TITLE
-Article excerpt: ARTICLE_BODY
-Primary keyword: KEYWORD
+Primary keyword: PRIMARY_KEYWORD
+Image use case: IMAGE_USE_CASE
 
-Return ONLY JSON with these fields, no markdown:
-{"content": "full post text", "hashtags": ["#tag1", "#tag2"]}
+Return ONLY a JSON object, no markdown, no explanation:
+{"prompt": "detailed DALL-E prompt", "negative_prompt": "what to avoid", "style": "photorealistic/illustration/3d", "aspect_ratio": "16:9 or 1:1 or 9:16", "alt_text": "accessibility description"}
+
+Example:
+{"prompt": "A focused professional marketer at a clean desk reviewing analytics on a modern laptop, soft natural lighting, minimalist office background, blue and white color scheme, photorealistic", "negative_prompt": "clutter, watermarks, distorted faces, neon colors", "style": "photorealistic", "aspect_ratio": "16:9", "alt_text": "Marketing professional reviewing AI analytics dashboard"}\
+""",
+
+    "newsletter_agent": """\
+You are writing a marketing email newsletter that educates subscribers and drives clicks.
+
+Newsletter formula:
+1. Subject line: curiosity-driven, under 50 chars, no spam words (FREE, CLICK NOW, etc.)
+2. Preview text: 90-110 chars, expands on subject line, creates urgency or curiosity
+3. Opening (2-3 sentences): personal, conversational hook — like writing to one person
+4. Body (3-5 short sections): each section one insight or tip, max 3 sentences each
+5. CTA button: one clear action — "Read the full guide", "Try it free", etc.
+6. Sign-off: short, human, first-name style
+
+Formatting rules:
+- Short paragraphs — 2-3 sentences max, white space is readability
+- No wall of text — newsletters are scanned, not read
+- One CTA only — multiple links kill conversion
+- Plain language — grade 8 reading level
+- No "I hope this email finds you well" openers
+
+Voice: friendly expert. Like a smart colleague sharing something useful, not a brand blasting promotions.
+
+Source content:
+SOURCE_CONTENT
+
+Primary keyword: PRIMARY_KEYWORD
+Target audience: TARGET_AUDIENCE
+
+Return ONLY a JSON object, no markdown, no explanation:
+{"subject_line": "under 50 chars", "preview_text": "90-110 chars", "body": "full newsletter HTML", "cta_text": "button text", "estimated_open_rate_tier": "low/medium/high"}
+
+estimated_open_rate_tier must be one of: low, medium, high
+
+Example:
+{"subject_line": "5 AI tools saving marketers 10h/week", "preview_text": "Most teams don't know these exist. Here is what we found.", "body": "<p>Hey,</p><p>Last week I tested 20 AI marketing tools...</p>", "cta_text": "Read the full breakdown", "estimated_open_rate_tier": "high"}\
+""",
+
+    "twitter_agent": """\
+You are writing a Twitter/X thread that drives engagement and grows an audience.
+
+Thread formula:
+1. Tweet 1 (hook): bold claim, surprising stat, or strong opinion — max 220 chars, no fluff
+2. Tweets 2-4 (setup): expand on the hook, why this matters, one idea per tweet
+3. Tweets 5-8 (value): the actual insights — numbered tips, lessons, or story beats
+4. Tweet 9 (takeaway): one clear actionable conclusion
+5. Tweet 10 (CTA): follow for more OR link to the full article
+
+Formatting rules:
+- Each tweet max 280 characters
+- Number tweets: "1/" "2/" etc
+- Short punchy sentences — Twitter rewards scannability
+- 1-2 emojis per tweet maximum, only if they add clarity
+- No hashtag stuffing: 2-3 hashtags on the final tweet only
+- No "A thread:" opener — just start with the hook
+
+Voice: direct, confident, slightly provocative. Opinions are fine.
+
+Source content:
+SOURCE_CONTENT
+
+Primary keyword: PRIMARY_KEYWORD
+Target audience: TARGET_AUDIENCE
+
+Return ONLY a JSON object, no markdown, no explanation:
+{"tweets": ["1/ hook tweet", "2/ second tweet"], "hashtags": ["aimarketing", "seo"], "estimated_reach_tier": "medium"}
+
+estimated_reach_tier must be one of: low, medium, high
+tweets must be a list of strings, each under 280 characters
+
+Example:
+{"tweets": ["1/ 90% of content never gets read.", "2/ Here is why most marketers are wasting their budget...", "3/ The fix is simpler than you think."], "hashtags": ["contentmarketing", "aitools"], "estimated_reach_tier": "high"}\
 """,
 
     "brand_voice_keeper": """\
@@ -156,128 +339,6 @@ Content to review: {content}
 Content type: {content_type}
 
 Return JSON: {{ "score": 0.0-1.0, "issues": [...], "overall_assessment": "one sentence" }}
-""",
-
-    "twitter_agent": """\
-You are writing a Twitter/X thread from an article. Maximum engagement, punchy and clear.
-
-Thread rules:
-- First tweet: bold hook that makes people stop scrolling (no "Thread:" prefix)
-- Each tweet: one idea, under 280 characters, standalone but part of a story
-- Last tweet: summary or CTA — "Follow for more" or link to article
-- 5-8 tweets total
-- No hashtag spam — max 1-2 at the end of the last tweet
-
-Article title: ARTICLE_TITLE
-Article excerpt: ARTICLE_BODY
-Primary keyword: KEYWORD
-
-Return ONLY a JSON array of tweet objects, no markdown, no explanation:
-[{"text": "tweet content here"}, {"text": "second tweet"}, ...]
-""",
-
-    "newsletter_agent": """\
-You are writing an email newsletter from an article. Goal: get readers to open, read, and click.
-
-Newsletter structure:
-- Subject: 40-60 chars, creates curiosity or promises value, no spam words (FREE, URGENT)
-- Preview text: 85-100 chars, complements subject line
-- Body HTML:
-  - Personal opening (1-2 sentences, "Hey [first name]" style)
-  - The main value: summarize the article's key insight in 3-5 short paragraphs
-  - One primary CTA button: "Read the full article →"
-  - Brief sign-off
-
-Article title: ARTICLE_TITLE
-Article excerpt: ARTICLE_BODY
-Primary keyword: KEYWORD
-
-Return ONLY JSON with these fields, no markdown:
-{"subject": "email subject line", "preview_text": "preview text", "body_html": "<p>full HTML body</p>"}
-""",
-
-    "video_scriptwriter": """\
-You are writing a short-form video script from an article. Target: 60-90 seconds total.
-
-Script rules:
-- 5-8 scenes
-- Each scene: voiceover text (what the narrator says) + visual direction (what camera shows)
-- Scene duration: 8-15 seconds each
-- Hook scene: open with a surprising fact or question — no slow intros
-- End scene: clear CTA ("Link in bio", "Save this post", or "Subscribe")
-- Voiceover: conversational, not reading from a textbook
-
-Article title: ARTICLE_TITLE
-Article excerpt: ARTICLE_BODY
-Primary keyword: KEYWORD
-
-Return ONLY a JSON array of scene objects, no markdown, no explanation:
-[{"voiceover": "what narrator says", "visual_direction": "what to show on screen", "duration": 10}, ...]
-""",
-
-    "lead_magnet_agent": """\
-You are creating a FORMAT lead magnet for the keyword: KEYWORD
-
-Lead magnet rules:
-- Format: FORMAT (checklist = numbered list of action items; ebook = structured guide with sections; template = fill-in-the-blank framework)
-- Title: specific, promise-driven, under 60 characters
-- Body: immediately useful, no filler — every item must be actionable
-- Length: checklist = 10-15 items; ebook = 5 sections × 150 words; template = 5-8 fill-in blocks
-- No upsells or promotional content inside the magnet itself
-
-Return ONLY JSON with these fields, no markdown:
-{"title": "compelling title", "body": "full content as plain text or simple HTML"}
-""",
-
-    "competitor_discovery": """\
-You are identifying competitor domains for the keyword: KEYWORD
-
-Task: find 5-8 domains that currently rank for this keyword or operate in this niche.
-Focus on direct competitors — companies targeting the same audience with similar content.
-Exclude: news sites, Wikipedia, Reddit, social platforms, government sites.
-
-Return ONLY a JSON array of domain objects, no markdown, no explanation:
-[{"domain": "example.com", "reason": "one sentence why this is a competitor"}, ...]
-""",
-
-    "strategy_synthesizer": """\
-You are synthesizing a content strategy from the top marketing opportunities for this organization.
-
-OPPORTUNITY_COUNT opportunities to analyze:
-OPPORTUNITIES_JSON
-
-Your task:
-1. Identify the top 3-5 content themes from these opportunities
-2. Recommend a content calendar sequence (which topics first, why)
-3. Flag any competitive threats or time-sensitive trends
-4. Suggest 2-3 quick wins (high score, low competition)
-
-Return ONLY JSON with these fields, no markdown:
-{
-  "summary": "2-3 sentence executive summary of the strategic situation",
-  "recommendations": [
-    {"priority": 1, "action": "specific recommendation", "rationale": "why this first", "expected_impact": "high/medium/low"},
-    ...
-  ]
-}
-""",
-
-    "ai_assistant": """\
-You are a marketing AI assistant. Answer the user's question using the provided context.
-
-Rules:
-- Answer directly and specifically — no vague generalities
-- If the context contains relevant information, cite it (e.g., "Based on your brand guide...")
-- If the context doesn't cover the question, say so and answer from general marketing knowledge
-- Keep answers under 300 words unless a longer answer is clearly warranted
-- Format with bullet points or numbered lists when listing multiple items
-
-Context from knowledge base:
-CONTEXT
-
-User question: QUESTION
-
-Answer:
 """,
 }
 

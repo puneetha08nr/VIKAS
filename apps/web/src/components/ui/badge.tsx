@@ -37,8 +37,8 @@ export function Badge({ children, variant = "default", className }: BadgeProps) 
   );
 }
 
-export function statusBadgeVariant(status: string): BadgeVariant {
-  switch (status.toLowerCase()) {
+export function statusBadgeVariant(status: string | undefined | null): BadgeVariant {
+  switch ((status ?? '').toLowerCase()) {
     case "validated":
     case "published":
     case "success":

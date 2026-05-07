@@ -64,9 +64,11 @@ async def list_opportunities(
     kw_ids = list({str(r.keyword_id) for r in rows})
     kw_map: dict[str, str] = {}
     if kw_ids:
+        placeholders = ", ".join(f":id_{i}" for i in range(len(kw_ids)))
+        params = {f"id_{i}": uid for i, uid in enumerate(kw_ids)}
         kw_result = await db.execute(
-            text("SELECT id::text, keyword FROM keywords WHERE id::text = ANY(:ids)"),
-            {"ids": kw_ids},
+            text(f"SELECT id::text, keyword FROM keywords WHERE id::text IN ({placeholders})"),
+            params,
         )
         kw_map = {r[0]: r[1] for r in kw_result.fetchall()}
 
@@ -229,8 +231,8 @@ async def list_twitter_threads(
             "article_id": str(r[1]) if r[1] else None,
             "tweets": r[2] or [],
             "tweet_count": len(r[2]) if r[2] else 0,
-            "status": r[4],
-            "created_at": r[5].isoformat() if r[5] else None,
+            "status": r[3],
+            "created_at": r[4].isoformat() if r[4] else None,
         }
         for r in rows
     ]
@@ -252,7 +254,7 @@ async def list_newsletters(
         params["article_id"] = article_id
     result = await db.execute(
         text(
-            "SELECT id, article_id, subject, preview_text, body_html, "
+            "SELECT id, article_id, subject, preview_text, body, body_html, "
             f"status, created_at FROM newsletters {where} "
             "ORDER BY created_at DESC LIMIT :limit"
         ),
@@ -265,12 +267,79 @@ async def list_newsletters(
             "article_id": str(r[1]) if r[1] else None,
             "subject": r[2],
             "preview_text": r[3],
-            "body_html": r[4],
-            "status": r[5],
-            "created_at": r[6].isoformat() if r[6] else None,
+            "body_html": r[4] or r[5] or "",
+            "status": r[6],
+            "created_at": r[7].isoformat() if r[7] else None,
         }
         for r in rows
     ]
+
+
+# ── Social mock publish endpoints ────────────────────────────────────────────
+
+@router.put("/linkedin-posts/{post_id}")
+async def update_linkedin_post(
+    post_id: str,
+    body: dict,
+    org: Organization = Depends(get_current_org),
+    db: AsyncSession = Depends(get_db_for_org),
+) -> dict:
+    new_status = body.get("status", "draft")
+    mock_url = f"https://linkedin.com/posts/mock-{post_id[:8]}" if new_status == "published" else None
+    sets = "status = :status, updated_at = now()"
+    params: dict = {"id": post_id, "org_id": str(org.id), "status": new_status}
+    if mock_url:
+        sets += ", published_url = :url"
+        params["url"] = mock_url
+    await db.execute(
+        text(f"UPDATE linkedin_posts SET {sets} WHERE id = CAST(:id AS uuid) AND org_id = :org_id"),
+        params,
+    )
+    await db.commit()
+    return {"id": post_id, "status": new_status, "published_url": mock_url}
+
+
+@router.put("/twitter-threads/{thread_id}")
+async def update_twitter_thread(
+    thread_id: str,
+    body: dict,
+    org: Organization = Depends(get_current_org),
+    db: AsyncSession = Depends(get_db_for_org),
+) -> dict:
+    new_status = body.get("status", "draft")
+    mock_url = f"https://twitter.com/mock/status/{thread_id[:8]}" if new_status == "published" else None
+    sets = "status = :status, updated_at = now()"
+    params: dict = {"id": thread_id, "org_id": str(org.id), "status": new_status}
+    if mock_url:
+        sets += ", published_url = :url"
+        params["url"] = mock_url
+    await db.execute(
+        text(f"UPDATE twitter_threads SET {sets} WHERE id = CAST(:id AS uuid) AND org_id = :org_id"),
+        params,
+    )
+    await db.commit()
+    return {"id": thread_id, "status": new_status, "published_url": mock_url}
+
+
+@router.put("/newsletters/{newsletter_id}")
+async def update_newsletter(
+    newsletter_id: str,
+    body: dict,
+    org: Organization = Depends(get_current_org),
+    db: AsyncSession = Depends(get_db_for_org),
+) -> dict:
+    new_status = body.get("status", "draft")
+    mock_url = f"https://mail.mock/campaigns/{newsletter_id[:8]}" if new_status == "published" else None
+    sets = "status = :status, updated_at = now()"
+    params: dict = {"id": newsletter_id, "org_id": str(org.id), "status": new_status}
+    if mock_url:
+        sets += ", sent_at = now()"
+    await db.execute(
+        text(f"UPDATE newsletters SET {sets} WHERE id = CAST(:id AS uuid) AND org_id = :org_id"),
+        params,
+    )
+    await db.commit()
+    return {"id": newsletter_id, "status": new_status, "published_url": mock_url}
 
 
 # ── Competitors ───────────────────────────────────────────────────────────────

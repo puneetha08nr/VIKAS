@@ -167,6 +167,7 @@ interface KeywordsTableProps {
   onSelectAll: () => void
   onRowClick: (keyword: KeywordRow) => void
   onValidate?: (id: string) => void
+  onCreateContent?: (keyword: KeywordRow) => void
   clusters?: KwCluster[]
   validatingId?: string | null
 }
@@ -179,6 +180,7 @@ export function KeywordsTable({
   onSelectAll,
   onRowClick,
   onValidate,
+  onCreateContent,
   clusters = [],
   validatingId = null,
 }: KeywordsTableProps) {
@@ -356,7 +358,7 @@ export function KeywordsTable({
                     {!isValidatingRow && kw.status === 'validated' && (
                       <button
                         type="button"
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); onCreateContent?.(kw) }}
                         className="inline-flex items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-100 transition-colors"
                       >
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
