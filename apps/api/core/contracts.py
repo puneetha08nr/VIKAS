@@ -222,71 +222,7 @@ class RankTrackingOutput(BaseModel):
         return str(v) if str(v) in {"quick_win", "ranking", "not_ranking"} else "not_ranking"
 
 
-# ── Content stubs ─────────────────────────────────────────────────────────────
-
-class ArticlePlanOutput(BaseModel):
-    """Output contract for article_planner agent."""
-    content_item_id: str
-    title: str
-    meta_description: str = ""
-    word_count_target: int = 1500
-    sections: list[dict] = []
-    conclusion: str = ""
-    cta: str = ""
-
-    @field_validator("word_count_target", mode="before")
-    @classmethod
-    def _coerce_wc(cls, v: object) -> int:
-        try:
-            return max(300, int(v))  # type: ignore[arg-type]
-        except (ValueError, TypeError):
-            return 1500
-
-    @field_validator("sections", mode="before")
-    @classmethod
-    def _coerce_sections(cls, v: object) -> list:
-        if isinstance(v, list):
-            return v
-        return []
-
-
-class ArticleOutput(BaseModel):
-    """Output contract for article_writer agent."""
-    content_item_id: str
-    title: str
-    meta_description: str = ""
-    body: str = ""
-    word_count: int = 0
-
-    @field_validator("word_count", mode="before")
-    @classmethod
-    def _coerce_wc(cls, v: object) -> int:
-        try:
-            return max(0, int(v))  # type: ignore[arg-type]
-        except (ValueError, TypeError):
-            return 0
-
-    @field_validator("body", "meta_description", mode="before")
-    @classmethod
-    def _coerce_str(cls, v: object) -> str:
-        return str(v).strip() if v else ""
-
-
-class ContentDirectorOutput(BaseModel):
-    """Output contract for content_director agent."""
-    opportunity_id: str
-    keyword: str
-    formats_dispatched: list[str] = []
-    content_item_ids: list[str] = []
-    items_created: int = 0
-
-    @field_validator("items_created", mode="before")
-    @classmethod
-    def _coerce_count(cls, v: object) -> int:
-        try:
-            return max(0, int(v))  # type: ignore[arg-type]
-        except (ValueError, TypeError):
-            return 0
+# ── Content stubs (aliases — full contracts defined below) ────────────────────
 
 
 class LinkedInPostOutput(BaseModel):
@@ -495,11 +431,6 @@ class KeywordOverlapOutput(BaseModel):
 
 # ── Knowledge stubs ───────────────────────────────────────────────────────────
 
-class DocumentIngestionOutput(BaseModel):
-    """Output contract for document_ingester agent. Fill when building."""
-    ...
-
-
 class BrandVoiceOutput(BaseModel):
     """One brand-voice state row produced by brand_voice_keeper agent."""
     org_id: str
@@ -540,16 +471,6 @@ class BrandVoiceOutput(BaseModel):
             except (json.JSONDecodeError, ValueError):
                 return {}
         return {}
-
-
-class RAGSearchOutput(BaseModel):
-    """Output contract for rag_searcher agent."""
-    ...
-
-
-class WordPressPublishOutput(BaseModel):
-    """Output contract for wordpress_publisher agent."""
-    ...
 
 
 # ── Contracts matching remote agent implementations ───────────────────────────
@@ -835,9 +756,10 @@ class PreferenceLearnerOutput(BaseModel):
     preferences_written: int = 0
 
 
-# ── Legacy aliases (kept for backwards compatibility) ─────────────────────────
+# ── Aliases for backwards compatibility ───────────────────────────────────────
 ArticlePlanOutput = ArticlePlannerOutput
 ArticleOutput = ArticleWriterOutput
 WordPressPublishOutput = WordPressPublisherOutput
 DocumentIngestionOutput = DocumentIngesterOutput
 RAGSearchOutput = RagSearcherOutput
+ContentDirectorLegacyOutput = ContentDirectorOutput

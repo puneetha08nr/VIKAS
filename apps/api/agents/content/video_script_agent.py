@@ -36,10 +36,15 @@ class VideoScriptAgent(BaseAgent):
 
         item = await _fetch_content_item(content_item_id, ctx.org_id, ctx.db)
         if item is None:
-            return AgentResult(status="failed", error=f"content_item {content_item_id} not found for this org")
+            return AgentResult(
+                status="failed", error=f"content_item {content_item_id} not found for this org"
+            )
 
         if item["format"] != "video_script":
-            return AgentResult(status="failed", error=f"video_script_agent only handles format=video_script, got {item['format']}")
+            return AgentResult(
+                status="failed",
+                error=f"video_script_agent only handles format=video_script, got {item['format']}",
+            )
 
         keyword = item["keyword"]
         article_body = await _fetch_article_body(item["opportunity_id"], ctx.org_id, ctx.db)
@@ -59,7 +64,10 @@ class VideoScriptAgent(BaseAgent):
 
         parsed = _parse_script(raw_response)
         if parsed is None:
-            return AgentResult(status="failed", error="LLM returned unparseable script JSON — check logs for raw response")
+            return AgentResult(
+                status="failed",
+                error="LLM returned unparseable script JSON — check logs for raw response",
+            )
 
         try:
             output = VideoScriptOutput(
@@ -100,7 +108,9 @@ class VideoScriptAgent(BaseAgent):
         )
 
 
-async def _fetch_content_item(content_item_id: str, org_id: str, db: AsyncSession) -> dict[str, Any] | None:
+async def _fetch_content_item(
+    content_item_id: str, org_id: str, db: AsyncSession
+) -> dict[str, Any] | None:
     result = await db.execute(
         text("""
             SELECT ci.id, ci.format, ci.title, ci.opportunity_id, k.keyword
@@ -114,7 +124,10 @@ async def _fetch_content_item(content_item_id: str, org_id: str, db: AsyncSessio
     row = result.fetchone()
     if row is None:
         return None
-    return {"id": str(row[0]), "format": str(row[1]), "title": str(row[2]), "opportunity_id": str(row[3]), "keyword": str(row[4])}
+    return {
+        "id": str(row[0]), "format": str(row[1]), "title": str(row[2]),
+        "opportunity_id": str(row[3]), "keyword": str(row[4]),
+    }
 
 
 async def _fetch_article_body(opportunity_id: str, org_id: str, db: AsyncSession) -> str:
@@ -133,7 +146,10 @@ async def _fetch_article_body(opportunity_id: str, org_id: str, db: AsyncSession
 
 async def _write_item(content_item_id: str, title: str, body: str, db: AsyncSession) -> None:
     await db.execute(
-        text("UPDATE content_items SET title=:title, body=:body, status='draft', updated_at=now() WHERE id=:id"),
+        text(
+            "UPDATE content_items SET title=:title, body=:body,"
+            " status='draft', updated_at=now() WHERE id=:id"
+        ),
         {"id": content_item_id, "title": title, "body": body},
     )
 
