@@ -42,6 +42,11 @@ def import_all_agents() -> None:
         "agents.content.article_planner",
         "agents.content.article_writer",
         "agents.content.linkedin_agent",
+        "agents.content.twitter_agent",
+        "agents.content.newsletter_agent",
+        "agents.content.video_script_agent",
+        "agents.content.lead_magnet_agent",
+        "agents.content.image_creator_agent",
         "agents.knowledge.document_ingester",
         "agents.knowledge.brand_voice_keeper",
         "agents.knowledge.rag_searcher",           # registered

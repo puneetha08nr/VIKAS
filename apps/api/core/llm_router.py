@@ -20,9 +20,9 @@ _MOCK_RESPONSE = (
 def _build_provider_configs(settings: Any) -> dict[str, dict[str, Any]]:
     return {
         "ollama": {
-            "fast":      "ollama/llama3.2:3b",
-            "standard":  "ollama/llama3.2:3b",
-            "advanced":  "ollama/llama3.2:3b",
+            "fast":      "ollama/mistral:7b-instruct",
+            "standard":  "ollama/mistral:7b-instruct",
+            "advanced":  "ollama/mistral:7b-instruct",
             "api_base":  settings.ollama_base_url,
             "api_key":   None,
             "cost_free": True,

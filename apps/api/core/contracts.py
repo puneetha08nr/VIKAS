@@ -171,51 +171,6 @@ class SiteAuditorOutput(BaseModel):
             return None
 
 
-# ── SEO agents (AEO scanner) ──────────────────────────────────────────────────
-
-_VALID_AEO_STATUSES = frozenset({"found", "not_found", "blocked"})
-
-
-class AeoScannerOutput(BaseModel):
-    """One SERP snapshot produced by aeo_scanner agent."""
-    keyword_id: str
-    keyword: str
-    ai_overview: bool = False
-    featured_snippet: bool = False
-    paa_count: int = 0
-    organic_position: int | None = None
-    status: str = "found"  # "found" | "not_found" | "blocked"
-
-    @field_validator("keyword_id", "keyword", mode="before")
-    @classmethod
-    def _coerce_str(cls, v: object) -> str:
-        return str(v).strip()
-
-    @field_validator("paa_count", mode="before")
-    @classmethod
-    def _coerce_paa(cls, v: object) -> int:
-        try:
-            return max(0, int(v))  # type: ignore[arg-type]
-        except (ValueError, TypeError):
-            return 0
-
-    @field_validator("organic_position", mode="before")
-    @classmethod
-    def _coerce_position(cls, v: object) -> int | None:
-        if v is None:
-            return None
-        try:
-            return max(1, int(v))  # type: ignore[arg-type]
-        except (ValueError, TypeError):
-            return None
-
-    @field_validator("status", mode="before")
-    @classmethod
-    def _validate_status(cls, v: object) -> str:
-        s = str(v).strip()
-        return s if s in _VALID_AEO_STATUSES else "found"
-
-
 # ── SEO stubs (fill when building each agent) ─────────────────────────────────
 
 class GapAnalysisOutput(BaseModel):
@@ -267,73 +222,211 @@ class RankTrackingOutput(BaseModel):
         return str(v) if str(v) in {"quick_win", "ranking", "not_ranking"} else "not_ranking"
 
 
-# ── Video agents ──────────────────────────────────────────────────────────────
+# ── Content stubs ─────────────────────────────────────────────────────────────
 
-_VALID_VIDEO_STATUSES = frozenset(
-    {"pending_video", "in_review", "video_ready", "published", "rejected"}
-)
+class ArticlePlanOutput(BaseModel):
+    """Output contract for article_planner agent."""
+    content_item_id: str
+    title: str
+    meta_description: str = ""
+    word_count_target: int = 1500
+    sections: list[dict] = []
+    conclusion: str = ""
+    cta: str = ""
 
-
-class VideoHandoffOutput(BaseModel):
-    """Result produced by video_handoff agent for one created job."""
-    job_id: str
-    upload_url: str
-    status: str = "pending_video"
-    notified: bool = False
-
-    @field_validator("job_id", "upload_url", mode="before")
+    @field_validator("word_count_target", mode="before")
     @classmethod
-    def _coerce_str(cls, v: object) -> str:
-        return str(v).strip()
+    def _coerce_wc(cls, v: object) -> int:
+        try:
+            return max(300, int(v))  # type: ignore[arg-type]
+        except (ValueError, TypeError):
+            return 1500
 
-    @field_validator("status", mode="before")
+    @field_validator("sections", mode="before")
     @classmethod
-    def _validate_status(cls, v: object) -> str:
-        s = str(v).strip()
-        return s if s in _VALID_VIDEO_STATUSES else "pending_video"
+    def _coerce_sections(cls, v: object) -> list:
+        if isinstance(v, list):
+            return v
+        return []
 
 
-# ── Ops agents ────────────────────────────────────────────────────────────────
+class ArticleOutput(BaseModel):
+    """Output contract for article_writer agent."""
+    content_item_id: str
+    title: str
+    meta_description: str = ""
+    body: str = ""
+    word_count: int = 0
 
-class PreferenceLearnerOutput(BaseModel):
-    """Summary produced by preference_learner for one content_type."""
-    org_id: str
-    content_type: str
-    total_feedback: int = 0
-    approved: int = 0
-    edited: int = 0
-    rejected: int = 0
-    approval_rate: float = 0.0
-    edit_rate: float = 0.0
-    rejection_rate: float = 0.0
-    preferences_written: int = 0
-
-    @field_validator("org_id", "content_type", mode="before")
+    @field_validator("word_count", mode="before")
     @classmethod
-    def _coerce_str(cls, v: object) -> str:
-        return str(v).strip()
-
-    @field_validator("total_feedback", "approved", "edited", "rejected",
-                     "preferences_written", mode="before")
-    @classmethod
-    def _coerce_int(cls, v: object) -> int:
+    def _coerce_wc(cls, v: object) -> int:
         try:
             return max(0, int(v))  # type: ignore[arg-type]
         except (ValueError, TypeError):
             return 0
 
-    @field_validator("approval_rate", "edit_rate", "rejection_rate", mode="before")
+    @field_validator("body", "meta_description", mode="before")
     @classmethod
-    def _clamp_rate(cls, v: object) -> float:
+    def _coerce_str(cls, v: object) -> str:
+        return str(v).strip() if v else ""
+
+
+class ContentDirectorOutput(BaseModel):
+    """Output contract for content_director agent."""
+    opportunity_id: str
+    keyword: str
+    formats_dispatched: list[str] = []
+    content_item_ids: list[str] = []
+    items_created: int = 0
+
+    @field_validator("items_created", mode="before")
+    @classmethod
+    def _coerce_count(cls, v: object) -> int:
         try:
-            return round(max(0.0, min(1.0, float(str(v)))), 4)
+            return max(0, int(v))  # type: ignore[arg-type]
         except (ValueError, TypeError):
-            return 0.0
+            return 0
 
 
-# ── Content stubs ─────────────────────────────────────────────────────────────
+class LinkedInPostOutput(BaseModel):
+    """Output contract for linkedin_agent."""
+    content_item_id: str
+    post_text: str
+    hashtags: list[str] = []
+    estimated_reach_tier: str = "medium"
 
-# ArticlePlannerOutput and ArticleWriterOutput defined later in this file
+    @field_validator("estimated_reach_tier", mode="before")
+    @classmethod
+    def _validate_tier(cls, v: object) -> str:
+        return str(v) if str(v) in {"low", "medium", "high"} else "medium"
+
+    @field_validator("hashtags", mode="before")
+    @classmethod
+    def _coerce_hashtags(cls, v: object) -> list[str]:
+        if isinstance(v, list):
+            return [str(h).lstrip("#") for h in v]
+        return []
+
+    @field_validator("post_text", mode="before")
+    @classmethod
+    def _coerce_text(cls, v: object) -> str:
+        return str(v).strip() if v else ""
+
+
+class VideoScriptOutput(BaseModel):
+    """Output contract for video_script_agent."""
+    content_item_id: str
+    title: str
+    total_duration_seconds: int = 180
+    scenes: list[dict] = []
+    cta: str = ""
+
+    @field_validator("total_duration_seconds", mode="before")
+    @classmethod
+    def _coerce_duration(cls, v: object) -> int:
+        try:
+            return max(30, int(v))  # type: ignore[arg-type]
+        except (ValueError, TypeError):
+            return 180
+
+    @field_validator("scenes", mode="before")
+    @classmethod
+    def _coerce_scenes(cls, v: object) -> list:
+        return v if isinstance(v, list) else []
+
+
+class LeadMagnetOutput(BaseModel):
+    """Output contract for lead_magnet_agent."""
+    content_item_id: str
+    title: str
+    subtitle: str = ""
+    format: str = "checklist"
+    introduction: str = ""
+    sections: list[dict] = []
+    bonus_tip: str = ""
+    cta: str = ""
+
+    @field_validator("format", mode="before")
+    @classmethod
+    def _validate_format(cls, v: object) -> str:
+        valid = {"checklist", "template", "mini-guide", "swipe-file"}
+        return str(v) if str(v) in valid else "checklist"
+
+    @field_validator("sections", mode="before")
+    @classmethod
+    def _coerce_sections(cls, v: object) -> list:
+        return v if isinstance(v, list) else []
+
+
+class ImageCreatorOutput(BaseModel):
+    """Output contract for image_creator_agent."""
+    content_item_id: str
+    prompt: str
+    negative_prompt: str = ""
+    style: str = "photorealistic"
+    aspect_ratio: str = "16:9"
+    alt_text: str = ""
+    image_url: str = ""
+
+    @field_validator("style", mode="before")
+    @classmethod
+    def _validate_style(cls, v: object) -> str:
+        valid = {"photorealistic", "illustration", "3d"}
+        return str(v) if str(v) in valid else "photorealistic"
+
+    @field_validator("aspect_ratio", mode="before")
+    @classmethod
+    def _validate_ratio(cls, v: object) -> str:
+        valid = {"16:9", "1:1", "9:16", "4:3"}
+        return str(v) if str(v) in valid else "16:9"
+
+
+class NewsletterOutput(BaseModel):
+    """Output contract for newsletter_agent."""
+    content_item_id: str
+    subject_line: str
+    preview_text: str = ""
+    body: str = ""
+    cta_text: str = ""
+    estimated_open_rate_tier: str = "medium"
+
+    @field_validator("estimated_open_rate_tier", mode="before")
+    @classmethod
+    def _validate_tier(cls, v: object) -> str:
+        return str(v) if str(v) in {"low", "medium", "high"} else "medium"
+
+    @field_validator("subject_line", "preview_text", "body", "cta_text", mode="before")
+    @classmethod
+    def _coerce_str(cls, v: object) -> str:
+        return str(v).strip() if v else ""
+
+
+class TwitterThreadOutput(BaseModel):
+    """Output contract for twitter_agent."""
+    content_item_id: str
+    tweets: list[str] = []
+    hashtags: list[str] = []
+    estimated_reach_tier: str = "medium"
+
+    @field_validator("estimated_reach_tier", mode="before")
+    @classmethod
+    def _validate_tier(cls, v: object) -> str:
+        return str(v) if str(v) in {"low", "medium", "high"} else "medium"
+
+    @field_validator("hashtags", mode="before")
+    @classmethod
+    def _coerce_hashtags(cls, v: object) -> list[str]:
+        if isinstance(v, list):
+            return [str(h).lstrip("#") for h in v]
+        return []
+
+    @field_validator("tweets", mode="before")
+    @classmethod
+    def _coerce_tweets(cls, v: object) -> list[str]:
+        if isinstance(v, list):
+            return [str(t).strip() for t in v if str(t).strip()]
+        return []
 
 
 # ── Competitor agents ─────────────────────────────────────────────────────────
@@ -377,23 +470,6 @@ class ContentExtractorOutput(BaseModel):
         return str(v) if str(v) in {"ok", "failed", "skipped"} else "failed"
 
 
-class ThreatAssessorOutput(BaseModel):
-    """One competitor_content row scored by threat_assessor agent."""
-    competitor_content_id: str
-    url: str
-    keyword_overlap_score: float = 0.0  # 0-10, count of validated keywords in body
-    content_depth_score: float = 0.0    # 0-10, derived from word_count
-    threat_score: float = 0.0           # composite: (overlap*0.6) + (depth*0.4)
-
-    @field_validator("keyword_overlap_score", "content_depth_score", "threat_score", mode="before")
-    @classmethod
-    def _clamp_score(cls, v: object) -> float:
-        try:
-            return round(max(0.0, min(10.0, float(str(v)))), 3)
-        except (ValueError, TypeError):
-            return 0.0
-
-
 class KeywordOverlapOutput(BaseModel):
     """One competitor_content row updated by keyword_overlap_analyzer."""
     competitor_content_id: str
@@ -417,37 +493,11 @@ class KeywordOverlapOutput(BaseModel):
             return 0
 
 
-# ── Knowledge agents ─────────────────────────────────────────────────────────
-
-class InternalLinkOutput(BaseModel):
-    """One internal link suggestion produced by internal_link_finder agent."""
-    url: str
-    title: str
-    anchor_text: str         # defaults to title — caller may override
-    similarity_score: float = 0.0
-
-    @field_validator("url", "title", "anchor_text", mode="before")
-    @classmethod
-    def _coerce_str(cls, v: object) -> str:
-        return str(v).strip()
-
-    @field_validator("similarity_score", mode="before")
-    @classmethod
-    def _clamp(cls, v: object) -> float:
-        try:
-            return round(max(0.0, min(1.0, float(str(v)))), 4)
-        except (ValueError, TypeError):
-            return 0.0
-
-
 # ── Knowledge stubs ───────────────────────────────────────────────────────────
 
-class DocumentIngesterOutput(BaseModel):
-    """Output contract for document_ingester agent."""
-    source_name: str
-    chunks_created: int = 0
-    chunks_failed: int = 0   # embedded with NULL (stored but no vector)
-    status: str = "success"  # success | partial | failed
+class DocumentIngestionOutput(BaseModel):
+    """Output contract for document_ingester agent. Fill when building."""
+    ...
 
 
 class BrandVoiceOutput(BaseModel):
@@ -492,88 +542,20 @@ class BrandVoiceOutput(BaseModel):
         return {}
 
 
-class RagSearcherOutput(BaseModel):
-    """One knowledge chunk returned by rag_searcher — ranked by cosine similarity."""
-    chunk_id: str
-    content: str        # maps to knowledge_chunks.chunk_text
-    source: str         # maps to knowledge_chunks.source_doc
-    similarity_score: float = 0.0
-
-    @field_validator("chunk_id", "content", "source", mode="before")
-    @classmethod
-    def _coerce_str(cls, v: object) -> str:
-        return str(v).strip()
-
-    @field_validator("similarity_score", mode="before")
-    @classmethod
-    def _clamp_sim(cls, v: object) -> float:
-        try:
-            return round(max(-1.0, min(1.0, float(str(v)))), 6)
-        except (ValueError, TypeError):
-            return 0.0
+class RAGSearchOutput(BaseModel):
+    """Output contract for rag_searcher agent."""
+    ...
 
 
-# kept for backwards-compat if anything references the old stub name
-RAGSearchOutput = RagSearcherOutput
+class WordPressPublishOutput(BaseModel):
+    """Output contract for wordpress_publisher agent."""
+    ...
 
 
-# WordPressPublisherOutput defined later in this file
-
-
-# ── SEO agents (topic discovery) ──────────────────────────────────────────────
-
-_VALID_TOPIC_SOURCES = frozenset(
-    {"pytrends_rising", "pytrends_top", "google_suggest", "reddit"}
-)
-
-
-class TopicDiscoveryOutput(BaseModel):
-    """One topic row produced by topic_discovery agent."""
-    topic: str
-    source: str        # "pytrends_rising" | "pytrends_top" | "google_suggest" | "reddit"
-    score: float = 0.0  # 0-10 signal strength
-    related_keywords: list[str] = []
-
-    @field_validator("topic", mode="before")
-    @classmethod
-    def _strip_topic(cls, v: object) -> str:
-        return str(v).strip()[:500]
-
-    @field_validator("source", mode="before")
-    @classmethod
-    def _validate_source(cls, v: object) -> str:
-        s = str(v).strip()
-        return s if s in _VALID_TOPIC_SOURCES else "google_suggest"
-
-    @field_validator("score", mode="before")
-    @classmethod
-    def _clamp_score(cls, v: object) -> float:
-        try:
-            return round(max(0.0, min(10.0, float(str(v)))), 2)
-        except (ValueError, TypeError):
-            return 0.0
-
-    @field_validator("related_keywords", mode="before")
-    @classmethod
-    def _coerce_list(cls, v: object) -> list[str]:
-        if isinstance(v, list):
-            return [str(x) for x in v]
-        return []
-
-
-# ── Video agents ──────────────────────────────────────────────────────────────
-
-class BrollSelectorOutput(BaseModel):
-    """One b-roll result produced by broll_selector agent."""
-    scene_text: str
-    suggestions_found: int = 0
-    status: str = "ok"  # ok | no_results | blocked
-
-
-# ── Content agents ────────────────────────────────────────────────────────────
+# ── Contracts matching remote agent implementations ───────────────────────────
 
 class ArticlePlannerOutput(BaseModel):
-    """Output produced by article_planner agent."""
+    """Output contract for article_planner agent (remote implementation)."""
     article_plan_id: str
     keyword: str
     title: str
@@ -584,7 +566,7 @@ class ArticlePlannerOutput(BaseModel):
 
 
 class ArticleWriterOutput(BaseModel):
-    """Output produced by article_writer agent."""
+    """Output contract for article_writer agent (remote implementation)."""
     article_id: str
     article_plan_id: str
     title: str
@@ -594,7 +576,7 @@ class ArticleWriterOutput(BaseModel):
 
 
 class ContentDirectorOutput(BaseModel):
-    """Output produced by content_director orchestrator."""
+    """Output contract for content_director agent (remote implementation)."""
     opportunity_id: str
     article_plan_id: str = ""
     article_id: str = ""
@@ -606,71 +588,97 @@ class ContentDirectorOutput(BaseModel):
 
 
 class LinkedInAgentOutput(BaseModel):
-    """Output produced by linkedin_agent."""
+    """Output contract for linkedin_agent (remote implementation)."""
     linkedin_post_id: str
-    article_id: str
+    article_id: str = ""
     word_count: int = 0
     status: str = "draft"
 
 
 class TwitterAgentOutput(BaseModel):
-    """Output produced by twitter_agent."""
+    """Output contract for twitter_agent (remote implementation)."""
     twitter_thread_id: str
-    article_id: str
+    article_id: str = ""
     tweet_count: int = 0
     status: str = "draft"
 
 
 class NewsletterAgentOutput(BaseModel):
-    """Output produced by newsletter_agent."""
+    """Output contract for newsletter_agent (remote implementation)."""
     newsletter_id: str
-    article_id: str
+    article_id: str = ""
+    status: str = "draft"
+
+
+class LeadMagnetAgentOutput(BaseModel):
+    """Output contract for lead_magnet_agent (remote implementation)."""
+    lead_magnet_id: str
+    keyword: str
+    format: str = "checklist"
+    title: str = ""
     status: str = "draft"
 
 
 class VideoScriptwriterOutput(BaseModel):
-    """Output produced by video_scriptwriter agent."""
+    """Output contract for video_scriptwriter agent (remote implementation)."""
     video_script_id: str
-    article_id: str
+    article_id: str = ""
     total_duration_seconds: int = 0
     scene_count: int = 0
     status: str = "draft"
 
 
-class LeadMagnetAgentOutput(BaseModel):
-    """Output produced by lead_magnet_agent."""
-    lead_magnet_id: str
-    keyword: str
-    format: str  # checklist | ebook | template
-    title: str
-    status: str = "draft"
-
-
 class WordPressPublisherOutput(BaseModel):
-    """Output produced by wordpress_publisher agent."""
+    """Output contract for wordpress_publisher agent (remote implementation)."""
     article_id: str
     published_url: str = ""
     wp_post_id: int = 0
-    status: str = "published"
+    status: str = "draft"
 
 
-# ── Competitor agents ─────────────────────────────────────────────────────────
-
-class CompetitorDiscoveryOutput(BaseModel):
-    """Output produced by competitor_discovery agent."""
-    seed_keyword: str
-    competitors_found: int = 0
-    competitors_written: int = 0
-
-
-# ── Ops agents ────────────────────────────────────────────────────────────────
-
-class StrategySynthesizerOutput(BaseModel):
-    """Output produced by strategy_synthesizer agent."""
-    report_id: str
-    opportunities_analyzed: int = 0
-    recommendations_count: int = 0
+class DocumentIngesterOutput(BaseModel):
+    """Output contract for document_ingester agent (remote implementation)."""
+    source_name: str
+    chunks_created: int = 0
+    chunks_failed: int = 0
     status: str = "success"
+
+
+class RagSearcherOutput(BaseModel):
+    """Output contract for rag_searcher agent (remote implementation)."""
+    chunk_id: str
+    content: str
+    source: str
+    similarity_score: float = 0.0
+
+    @field_validator("similarity_score", mode="before")
+    @classmethod
+    def _clamp(cls, v: object) -> float:
+        try:
+            return round(max(-1.0, min(1.0, float(str(v)))), 6)
+        except (ValueError, TypeError):
+            return 0.0
+
+
+class InternalLinkOutput(BaseModel):
+    """One internal link suggestion produced by internal_link_finder."""
+    url: str
+    title: str
+    anchor_text: str = ""
+    similarity_score: float = 0.0
+
+    @field_validator("url", "title", "anchor_text", mode="before")
+    @classmethod
+    def _coerce_str(cls, v: object) -> str:
+        return str(v).strip()
+
+    @field_validator("similarity_score", mode="before")
+    @classmethod
+    def _clamp(cls, v: object) -> float:
+        try:
+            return round(max(0.0, min(1.0, float(str(v)))), 4)
+        except (ValueError, TypeError):
+            return 0.0
 
 
 class AIAssistantOutput(BaseModel):
@@ -681,12 +689,108 @@ class AIAssistantOutput(BaseModel):
     status: str = "success"
 
 
-class PipelineOrchestratorOutput(BaseModel):
-    """Output produced by pipeline_orchestrator agent."""
-    opportunity_id: str
-    stages_completed: int = 0
-    stages_failed: int = 0
-    status: str = "success"
+class ThreatAssessorOutput(BaseModel):
+    """One competitor_content row scored by threat_assessor agent."""
+    competitor_content_id: str
+    url: str
+    keyword_overlap_score: float = 0.0
+    content_depth_score: float = 0.0
+    threat_score: float = 0.0
+
+    @field_validator("keyword_overlap_score", "content_depth_score", "threat_score", mode="before")
+    @classmethod
+    def _clamp(cls, v: object) -> float:
+        try:
+            return round(max(0.0, min(10.0, float(str(v)))), 3)
+        except (ValueError, TypeError):
+            return 0.0
+
+
+class CompetitorDiscoveryOutput(BaseModel):
+    """Output produced by competitor_discovery agent."""
+    seed_keyword: str
+    competitors_found: int = 0
+    competitors_written: int = 0
+
+
+class AeoScannerOutput(BaseModel):
+    """Output contract for aeo_scanner agent — validated from LLM JSON."""
+    keyword: str = ""
+    keyword_id: str = ""
+    ai_overview: bool = False
+    featured_snippet: bool = False
+    paa_count: int = 0
+    organic_position: int | None = None
+    status: str = "ok"
+    aeo_score: float = 0.0
+
+    @field_validator("aeo_score", mode="before")
+    @classmethod
+    def _clamp(cls, v: object) -> float:
+        try:
+            return round(max(0.0, min(10.0, float(str(v)))), 2)
+        except (ValueError, TypeError):
+            return 0.0
+
+    @field_validator("paa_count", mode="before")
+    @classmethod
+    def _coerce_int(cls, v: object) -> int:
+        try:
+            return max(0, int(v))  # type: ignore[arg-type]
+        except (ValueError, TypeError):
+            return 0
+
+
+class TopicDiscoveryOutput(BaseModel):
+    """One topic row produced by topic_discovery agent."""
+    topic: str
+    source: str = "google_suggest"
+    score: float = 0.0
+    related_keywords: list[str] = []
+
+    @field_validator("topic", mode="before")
+    @classmethod
+    def _strip(cls, v: object) -> str:
+        return str(v).strip()[:500]
+
+    @field_validator("score", mode="before")
+    @classmethod
+    def _clamp(cls, v: object) -> float:
+        try:
+            return round(max(0.0, min(10.0, float(str(v)))), 2)
+        except (ValueError, TypeError):
+            return 0.0
+
+    @field_validator("related_keywords", mode="before")
+    @classmethod
+    def _coerce_list(cls, v: object) -> list[str]:
+        return [str(x) for x in v] if isinstance(v, list) else []
+
+
+class BrollSelectorOutput(BaseModel):
+    """One b-roll result produced by broll_selector agent."""
+    scene_text: str
+    suggestions_found: int = 0
+    status: str = "ok"
+
+    @field_validator("scene_text", mode="before")
+    @classmethod
+    def _coerce_str(cls, v: object) -> str:
+        return str(v).strip()
+
+
+class VideoHandoffOutput(BaseModel):
+    """Output produced by video_handoff agent."""
+    job_id: str
+    upload_url: str = ""
+    status: str = "pending_video"
+    notified: bool = False
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def _validate_status(cls, v: object) -> str:
+        valid = {"pending_video", "queued", "processing", "done", "failed"}
+        return str(v) if str(v) in valid else "pending_video"
 
 
 class AutoModeEngineOutput(BaseModel):
@@ -694,3 +798,46 @@ class AutoModeEngineOutput(BaseModel):
     opportunities_selected: int = 0
     pipelines_triggered: int = 0
     status: str = "success"
+
+
+class PipelineOrchestratorOutput(BaseModel):
+    """Output produced by pipeline_orchestrator agent."""
+    opportunity_id: str
+    stages_completed: int = 0
+    stages_failed: int = 0
+    status: str = "success"
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def _validate_status(cls, v: object) -> str:
+        return str(v) if str(v) in {"success", "partial", "failed"} else "success"
+
+
+class StrategySynthesizerOutput(BaseModel):
+    """Output produced by strategy_synthesizer agent."""
+    report_id: str
+    opportunities_analyzed: int = 0
+    recommendations_count: int = 0
+    status: str = "success"
+
+
+class PreferenceLearnerOutput(BaseModel):
+    """Output produced by preference_learner agent — one row per content_type."""
+    org_id: str
+    content_type: str
+    total_feedback: int = 0
+    approved: int = 0
+    edited: int = 0
+    rejected: int = 0
+    approval_rate: float = 0.0
+    edit_rate: float = 0.0
+    rejection_rate: float = 0.0
+    preferences_written: int = 0
+
+
+# ── Legacy aliases (kept for backwards compatibility) ─────────────────────────
+ArticlePlanOutput = ArticlePlannerOutput
+ArticleOutput = ArticleWriterOutput
+WordPressPublishOutput = WordPressPublisherOutput
+DocumentIngestionOutput = DocumentIngesterOutput
+RAGSearchOutput = RagSearcherOutput

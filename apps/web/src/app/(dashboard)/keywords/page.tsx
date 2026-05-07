@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '@/lib/api'
+import { api, axiosInstance } from '@/lib/api'
 import { mockKeywords, mockKeywordStats, KW_CLUSTERS } from '@/lib/mocks'
 import type { KeywordRow } from '@/lib/types'
 import { KpiStrip } from './components/KpiStrip'
@@ -215,6 +215,26 @@ export default function KeywordsPage() {
       setValidatingCount(1)
     } catch (err) {
       setApiError(err instanceof Error ? err.message : 'Validation failed')
+    }
+  }
+
+  const handleCreateContent = async (keyword: KeywordRow) => {
+    setApiError(null)
+    setSuccessMessage(null)
+    try {
+      // Find the opportunity for this keyword then trigger content_director
+      const opportunities = await api.opportunities.list({ limit: 200 })
+      const opp = opportunities.find((o: any) => o.keyword_id === keyword.id)
+      if (!opp) {
+        setApiError(`No opportunity found for "${keyword.keyword}" — run opportunity scorer first`)
+        return
+      }
+      await axiosInstance.post('/api/v1/agents/content_director/run', {
+        params: { opportunity_id: opp.id },
+      })
+      setSuccessMessage(`Content pipeline started for "${keyword.keyword}" — check Content page in ~15 min`)
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : 'Failed to start content pipeline')
     }
   }
 
@@ -442,6 +462,7 @@ export default function KeywordsPage() {
         onSelectAll={toggleSelectAll}
         onRowClick={setOpenKeyword}
         onValidate={handleValidateRow}
+        onCreateContent={handleCreateContent}
         clusters={KW_CLUSTERS}
       />
 

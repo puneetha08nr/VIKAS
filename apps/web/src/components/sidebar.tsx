@@ -13,6 +13,7 @@ import {
   Settings,
   LogOut,
   Zap,
+  Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { href: "/keywords", label: "Keywords", icon: Search },
   { href: "/opportunities", label: "Opportunities", icon: Target },
   { href: "/content", label: "Content", icon: FileText },
+  { href: "/social", label: "Social", icon: Share2 },
   { href: "/competitors", label: "Competitors", icon: Users },
   { href: "/video-queue", label: "Video Queue", icon: Video },
   { href: "/strategy", label: "Strategy", icon: BarChart2 },

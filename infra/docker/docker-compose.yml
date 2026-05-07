@@ -121,6 +121,18 @@ services:
       - web_node_modules:/app/apps/web/node_modules
       - web_next_cache:/app/apps/web/.next
 
+  # ── pgAdmin 4 (DB browser at http://localhost:5050) ─────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@vikas.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+    depends_on:
+      - db
+
 volumes:
   postgres_data:
   web_node_modules:
