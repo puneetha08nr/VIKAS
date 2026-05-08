@@ -11,8 +11,8 @@ and back-fills them once trend_collector has written a non-neutral signal.
 Existing rows with trend_score = 0 (DEFAULT) or = 5 (placeholder) are left
 as-is; Mode 2 catches them via the (IS NULL OR = 5) condition.
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "j3k4l5m6n7o8"
 down_revision = "i2j3k4l5m6n7"
