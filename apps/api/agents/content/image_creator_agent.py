@@ -46,7 +46,7 @@ class ImageCreatorAgent(BaseAgent):
         if item["format"] != "article":
             return AgentResult(
                 status="failed",
-                error=f"image_creator_agent handles format=article items, got {item['format']}",
+                error=f"image_creator_agent only handles format=article, got {item['format']}",
             )
 
         keyword = item["keyword"]

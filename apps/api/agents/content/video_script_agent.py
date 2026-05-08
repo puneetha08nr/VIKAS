@@ -147,8 +147,8 @@ async def _fetch_article_body(opportunity_id: str, org_id: str, db: AsyncSession
 async def _write_item(content_item_id: str, title: str, body: str, db: AsyncSession) -> None:
     await db.execute(
         text(
-            "UPDATE content_items SET title=:title, body=:body, status='draft',"
-            " updated_at=now() WHERE id=:id"
+            "UPDATE content_items SET title=:title, body=:body,"
+            " status='draft', updated_at=now() WHERE id=:id"
         ),
         {"id": content_item_id, "title": title, "body": body},
     )
