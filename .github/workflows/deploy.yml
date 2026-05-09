@@ -85,6 +85,12 @@ jobs:
           script: |
             mkdir -p ${{ secrets.DEPLOY_DIR }}
 
+      # Prepare compose file
+      - name: Prepare deployment files
+        run: |
+          cp infra/docker/docker-compose.yml docker-compose.yml
+
+      
       # ---------------------------------
       # Copy docker-compose.yml
       # ---------------------------------
@@ -95,7 +101,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
-          source: "infra/docker/docker-compose.yml"
+          source: "docker-compose.yml"
           target: ${{ secrets.DEPLOY_DIR }}
 
       # ---------------------------------
