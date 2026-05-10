@@ -1,19 +1,44 @@
+# FROM node:20-alpine
+
+# WORKDIR /app
+
+# RUN npm install -g pnpm
+
+# # Copy workspace manifests — source is mounted at runtime for hot reload.
+# # These layers are cached as long as package.json files don't change.
+# COPY package.json pnpm-workspace.yaml ./
+# COPY apps/web/package.json ./apps/web/
+# COPY packages/shared-types/package.json ./packages/shared-types/
+
+# # Install workspace deps; node_modules are preserved by the named volume
+# # in docker-compose so the host mount never shadows them.
+# RUN pnpm install
+
+# EXPOSE 3000
+
+# CMD ["pnpm", "--filter", "@vikas/web", "dev"]
+
+
 FROM node:20-alpine
 
 WORKDIR /app
 
+# Install pnpm
 RUN npm install -g pnpm
 
-# Copy workspace manifests — source is mounted at runtime for hot reload.
-# These layers are cached as long as package.json files don't change.
-COPY package.json pnpm-workspace.yaml ./
-COPY apps/web/package.json ./apps/web/
-COPY packages/shared-types/package.json ./packages/shared-types/
+# Copy entire repository
+COPY . .
 
-# Install workspace deps; node_modules are preserved by the named volume
-# in docker-compose so the host mount never shadows them.
-RUN pnpm install
+# Move to web app
+WORKDIR /app/apps/web
+
+# Install dependencies
+RUN pnpm install --no-frozen-lockfile
+
+# Build Next.js app
+RUN pnpm build
 
 EXPOSE 3000
 
-CMD ["pnpm", "--filter", "@vikas/web", "dev"]
+# Production start
+CMD ["pnpm", "start"]
