@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # ── Database ──────────────────────────────────────────────────────────────
     database_url: str = ""   # required in production via DATABASE_URL env var
     admin_database_url: str = ""  # vikas_admin — DDL privileges (Alembic only; optional at runtime)
-    redis_url: str = "redis://localhost:6379/0"
+    redis_url: str = "redis://redis:6379/0"
 
     # ── App ───────────────────────────────────────────────────────────────────
     env: str = "development"
@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_anon_key: str = ""
     supabase_service_role_key: str = ""
+    supabase_jwt_secret: str = ""
     # Set DEV_AUTH_BYPASS=true to skip Supabase verification in local dev
     dev_auth_bypass: bool = False
 

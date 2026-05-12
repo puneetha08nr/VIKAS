@@ -39,6 +39,7 @@ dependencies = [
     "langdetect>=1.0.9",
     "vaderSentiment>=3.3.2",
     "datasketch>=1.6.0",
+    "PyJWT>=2.8.0",
 ]
 
 [build-system]
