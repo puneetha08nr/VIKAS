@@ -73,6 +73,9 @@ class Settings(BaseSettings):
     video_team_email: str = ""
 
     # ── Integrations ──────────────────────────────────────────────────────────
+    google_search_api_key: str = ""
+    google_search_cx: str = ""
+
     gsc_service_account_json: str = ""
     gsc_site_url: str = ""
     gsc_client_id: str = ""
