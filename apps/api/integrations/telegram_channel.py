@@ -103,7 +103,7 @@ def _parse_messages(html: str, channel: str) -> list[dict[str, Any]]:
         time_elem = wrap.find("time")
         published_at: str | None = None
         if time_elem and time_elem.get("datetime"):
-            published_at = time_elem["datetime"]
+            published_at = str(time_elem["datetime"])
 
         # View count
         views_elem = wrap.find("span", class_="tgme_widget_message_views")
