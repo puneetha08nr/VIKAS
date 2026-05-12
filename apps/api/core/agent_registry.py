@@ -73,6 +73,7 @@ def import_all_agents() -> None:
         "agents.sentiment.theme_tagger",
         "agents.sentiment.entity_extractor",
         "agents.sentiment.aggregator",
+        "agents.sentiment.spike_detector",
     ]
 
     for module in agent_modules:
