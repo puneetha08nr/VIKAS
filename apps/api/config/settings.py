@@ -75,6 +75,8 @@ class Settings(BaseSettings):
     # ── Integrations ──────────────────────────────────────────────────────────
     google_search_api_key: str = ""
     google_search_cx: str = ""
+    newsapi_key: str = ""
+    youtube_api_key: str = ""
 
     gsc_service_account_json: str = ""
     gsc_site_url: str = ""
