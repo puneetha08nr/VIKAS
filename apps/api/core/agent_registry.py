@@ -68,6 +68,7 @@ def import_all_agents() -> None:
         "agents.sentiment.google_news_collector",
         "agents.sentiment.youtube_collector",
         "agents.sentiment.telegram_collector",
+        "agents.sentiment.sentiment_filter",
     ]
 
     for module in agent_modules:

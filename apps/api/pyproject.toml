@@ -36,6 +36,9 @@ dependencies = [
     "python-docx>=1.1.0",
     "anyio>=4.4.0",
     "python-multipart>=0.0.9",
+    "langdetect>=1.0.9",
+    "vaderSentiment>=3.3.2",
+    "datasketch>=1.6.0",
 ]
 
 [build-system]
