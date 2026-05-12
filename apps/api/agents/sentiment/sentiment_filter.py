@@ -28,11 +28,14 @@ from datetime import datetime
 from typing import Any
 
 from bs4 import BeautifulSoup
+from langdetect import DetectorFactory  # type: ignore[import-untyped]
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.agent_base import AgentContext, AgentResult, BaseAgent
 from core.agent_registry import register
+
+DetectorFactory.seed = 0  # deterministic language detection across runs
 
 logger = logging.getLogger(__name__)
 
