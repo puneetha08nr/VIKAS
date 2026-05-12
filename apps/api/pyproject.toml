@@ -62,4 +62,7 @@ testpaths = ["../../tests"]
 [dependency-groups]
 dev = [
     "respx>=0.23.1",
+    "pytest>=9.0.0",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=7.0.0",
 ]
