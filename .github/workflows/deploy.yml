@@ -56,8 +56,8 @@ jobs:
           file: infra/docker/Dockerfile.api
           push: true
           tags: |
-            ${{ secrets.DOCKER_USERNAME }}/vikas-api:latest
-            ${{ secrets.DOCKER_USERNAME }}/vikas-api:${{ github.sha }}
+            elytsllc/vikas-api:latest
+            elytsllc/vikas-api:${{ github.sha }}
 
       # ---------------------------------
       # Build WEB Image
@@ -69,8 +69,8 @@ jobs:
           file: infra/docker/Dockerfile.web
           push: true
           tags: |
-            ${{ secrets.DOCKER_USERNAME }}/vikas-web:latest
-            ${{ secrets.DOCKER_USERNAME }}/vikas-web:${{ github.sha }}
+            elytsllc/vikas-web:latest
+            elytsllc/vikas-web:${{ github.sha }}
           build-args: |
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
