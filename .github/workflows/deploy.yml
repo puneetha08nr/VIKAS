@@ -157,4 +157,6 @@ jobs:
           port: ${{ secrets.SERVER_PORT }}
           script: |
             cd ${{ secrets.DEPLOY_DIR }}
-            docker compose exec -T api uv run alembic upgrade head
+            docker compose exec -T \
+              -e ADMIN_DATABASE_URL="${{ secrets.ADMIN_DATABASE_URL }}" \
+              api uv run alembic upgrade head
