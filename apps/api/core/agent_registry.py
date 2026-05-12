@@ -70,6 +70,8 @@ def import_all_agents() -> None:
         "agents.sentiment.telegram_collector",
         "agents.sentiment.sentiment_filter",
         "agents.sentiment.polarity_classifier",
+        "agents.sentiment.theme_tagger",
+        "agents.sentiment.entity_extractor",
     ]
 
     for module in agent_modules:
