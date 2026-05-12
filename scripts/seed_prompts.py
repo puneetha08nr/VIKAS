@@ -340,6 +340,332 @@ Content type: {content_type}
 
 Return JSON: {{ "score": 0.0-1.0, "issues": [...], "overall_assessment": "one sentence" }}
 """,
+
+    # ── Sentiment analyser prompts ────────────────────────────────────────────
+    # Registry keys use the dotted format: sentiment_analyser.<name>.<version>
+    # Agents load these via PromptRegistry().get(key, db).
+
+    "sentiment_analyser.polarity_classifier_en.v1": """\
+You are a sentiment classifier for political content about Indian government schemes. Classify the polarity of the text below. Be precise. Sarcasm and rhetorical questions are common in political content — read them carefully.
+
+Output strict JSON only. No prose. No markdown fences. No explanation outside the JSON.
+
+Schema:
+{
+  "polarity": "positive" | "negative" | "neutral" | "mixed",
+  "polarity_score": <float between -1.0 and 1.0>,
+  "confidence": <float between 0.0 and 1.0>,
+  "reasoning": "<one sentence, max 20 words, explaining the classification>",
+  "contains_sarcasm": <true | false>,
+  "is_about_scheme": <true | false>
+}
+
+Rules:
+- "positive" = the speaker expresses approval, satisfaction, or praise toward the scheme or its execution
+- "negative" = the speaker expresses criticism, dissatisfaction, complaint, or accusation
+- "neutral" = factual reporting, announcement, or description without evaluative stance
+- "mixed" = the text contains both clearly positive and clearly negative statements about the scheme
+- If the text is not actually about a government scheme, set "is_about_scheme" to false and use "neutral" with confidence 1.0
+- polarity_score: -1.0 = strongly negative, 0.0 = neutral, +1.0 = strongly positive
+- confidence: lower it when text is short, ambiguous, or sarcastic
+
+CONTEXT:
+Scheme reference: SCHEME_NAME
+District reference: DISTRICT_NAME
+Source type: SOURCE_TYPE
+
+TEXT TO CLASSIFY:
+\"\"\"
+MENTION_TEXT
+\"\"\"
+
+JSON output:
+""",
+
+    "sentiment_analyser.polarity_classifier_ta.v1": """\
+You are a sentiment classifier for Tamil and Tamil-English mixed (Tanglish) content about Indian government schemes. Classify the polarity of the text below.
+
+Tamil political content frequently uses:
+- Sarcasm and rhetorical questions
+- Mixed script (Tamil and English in the same sentence)
+- Regional idioms specific to Madurai, Coimbatore, and Tamil Nadu generally
+- Honorific or hostile prefixes/suffixes for politicians
+
+Read carefully for these patterns. Do not assume Tamil = positive or Tamil = negative.
+
+Output strict JSON only. No prose. No markdown fences. No explanation outside the JSON.
+
+Schema:
+{
+  "polarity": "positive" | "negative" | "neutral" | "mixed",
+  "polarity_score": <float between -1.0 and 1.0>,
+  "confidence": <float between 0.0 and 1.0>,
+  "language_observed": "ta" | "en" | "mixed",
+  "reasoning": "<one sentence, max 25 words>",
+  "reasoning_tamil_quoted": "<if Tamil text drove the decision, quote up to 10 words of the key phrase; else empty string>",
+  "contains_sarcasm": <true | false>,
+  "is_about_scheme": <true | false>
+}
+
+Rules:
+- "positive" = approval, satisfaction, praise toward the scheme
+- "negative" = criticism, complaint, accusation, or expression of harm caused
+- "neutral" = factual or descriptive without stance
+- "mixed" = contains both positive and negative statements about the same scheme
+- For Tanglish, treat Tamil and English content together — do not classify only one language
+- For sarcasm, classify the intended polarity (sarcastic praise = negative)
+- polarity_score: -1.0 strongly negative to +1.0 strongly positive
+- Lower confidence when text is short, ambiguous, or relies on context not present
+
+CONTEXT:
+Scheme reference: SCHEME_NAME
+District reference: DISTRICT_NAME
+Source type: SOURCE_TYPE
+Detected language: DETECTED_LANGUAGE
+
+TEXT TO CLASSIFY:
+\"\"\"
+MENTION_TEXT
+\"\"\"
+
+JSON output:
+""",
+
+    "sentiment_analyser.polarity_batch.v1": """\
+You are a sentiment classifier for political content about Indian government schemes. Classify each text in the batch below.
+
+Output a strict JSON array with one object per input text, in the same order. No prose. No markdown fences.
+
+Schema for each array element:
+{
+  "id": "<the id from the input>",
+  "polarity": "positive" | "negative" | "neutral" | "mixed",
+  "polarity_score": <float -1.0 to 1.0>,
+  "confidence": <float 0.0 to 1.0>,
+  "is_about_scheme": <true | false>
+}
+
+Rules:
+- positive = approval, praise, satisfaction with the scheme
+- negative = criticism, complaint, accusation
+- neutral = factual or descriptive without stance
+- mixed = contains both positive and negative statements
+- If text is not about the referenced scheme, mark is_about_scheme false and use neutral
+- Apply sarcasm detection: sarcastic praise -> negative
+- Return one object per input, preserving order
+
+CONTEXT:
+Scheme reference: SCHEME_NAME
+District reference: DISTRICT_NAME
+
+INPUTS (JSON array):
+MENTION_BATCH_JSON
+
+JSON output:
+""",
+
+    "sentiment_analyser.theme_discovery.v1": """\
+You are analyzing political mentions about Indian government schemes to discover recurring themes. The taxonomy below is the current known set. Your job is to find themes that are present in the sample but NOT in the taxonomy.
+
+Output strict JSON only. No prose. No markdown fences.
+
+Schema:
+{
+  "novel_themes": [
+    {
+      "theme_label_en": "<short label, 2-4 words, English>",
+      "theme_label_ta": "<short label in Tamil if Tamil-relevant, else empty string>",
+      "description": "<one sentence describing the theme, max 25 words>",
+      "frequency_estimate": <integer count of mentions in the sample touching this theme>,
+      "example_mention_ids": [<up to 3 mention ids that exemplify the theme>],
+      "polarity_skew": "mostly_positive" | "mostly_negative" | "mixed" | "neutral",
+      "recommend_add_to_taxonomy": <true | false>,
+      "rationale_for_recommendation": "<one sentence>"
+    }
+  ],
+  "coverage_assessment": "<one sentence describing how well the existing taxonomy covers the sample>"
+}
+
+Rules:
+- Only surface themes that appear in >= 3 mentions in the sample
+- Themes must be specific enough to be actionable, not so specific they apply to one mention
+- A theme is "novel" if no existing taxonomy entry covers it semantically
+- recommend_add_to_taxonomy = true only if frequency is meaningful AND theme is distinct
+- Examples: "delayed pension disbursement" is good; "people are unhappy" is too vague
+
+EXISTING THEME TAXONOMY:
+EXISTING_THEMES_JSON
+
+SAMPLE MENTIONS (JSON array, each with id, text, polarity):
+SAMPLE_MENTIONS_JSON
+
+JSON output:
+""",
+
+    "sentiment_analyser.theme_classifier.v1": """\
+You are classifying a political mention against a fixed theme taxonomy. Identify ONLY themes from the provided taxonomy that the mention clearly expresses. Do not invent new themes.
+
+Output strict JSON only. No prose. No markdown fences.
+
+Schema:
+{
+  "matched_themes": [
+    {
+      "theme_key": "<exact theme_key from taxonomy>",
+      "confidence": <float 0.0 to 1.0>,
+      "evidence_quote": "<up to 15 words from the mention text that support this theme>"
+    }
+  ],
+  "no_match_reason": "<if matched_themes is empty, one sentence explaining why; else empty string>"
+}
+
+Rules:
+- Only use theme_key values from the taxonomy below — never invent
+- Include a theme only if confidence >= 0.6
+- Maximum 5 themes per mention
+- evidence_quote must be a substring (or close paraphrase under 15 words) of the original mention
+- If nothing clearly matches, return empty array and explain in no_match_reason
+
+THEME TAXONOMY:
+THEME_TAXONOMY_JSON
+
+MENTION TEXT:
+\"\"\"
+MENTION_TEXT
+\"\"\"
+
+Context: scheme=SCHEME_NAME, district=DISTRICT_NAME, language=DETECTED_LANGUAGE
+
+JSON output:
+""",
+
+    "sentiment_analyser.entity_extractor.v1": """\
+You are extracting entities and factual claims from a political mention about an Indian government scheme. Be precise. Do not infer beyond what is stated.
+
+Output strict JSON only. No prose. No markdown fences.
+
+Schema:
+{
+  "schemes_mentioned": [<list of scheme names exactly as they appear in text>],
+  "districts_mentioned": [<list of place names exactly as they appear>],
+  "persons_mentioned": [
+    {
+      "name": "<as appearing>",
+      "role_if_stated": "<e.g. MLA, Mayor, beneficiary or empty string>",
+      "polarity_toward": "positive" | "negative" | "neutral" | "not_evaluative"
+    }
+  ],
+  "factual_claims": [
+    {
+      "claim": "<the claim as stated, max 30 words>",
+      "is_verifiable": <true | false>,
+      "claim_type": "statistic" | "event" | "promise" | "accusation" | "comparison",
+      "involves_numbers": <true | false>
+    }
+  ],
+  "quoted_statements": [
+    {
+      "speaker": "<who said it, if named>",
+      "quote": "<the quoted text, max 50 words>"
+    }
+  ]
+}
+
+Rules:
+- Extract only what is explicitly in the text — do not infer or expand
+- For Tamil text, transliterate person names to Latin script if not already
+- factual_claims: verifiable means could in principle be checked against records
+- Empty arrays are valid — return [] rather than omitting fields
+- Do not extract claims from clearly opinionated statements like "the scheme is bad"
+
+MENTION TEXT:
+\"\"\"
+MENTION_TEXT
+\"\"\"
+
+Source type: SOURCE_TYPE
+Language: DETECTED_LANGUAGE
+
+JSON output:
+""",
+
+    "sentiment_analyser.spike_analyzer.v1": """\
+You are a political communication analyst. The system has detected a sudden shift in sentiment for a government scheme. Analyze the recent mentions and produce a concise situation summary.
+
+Output strict JSON only. No prose. No markdown fences.
+
+Schema:
+{
+  "situation_summary": "<2-3 sentences describing what changed and why, max 80 words>",
+  "primary_drivers": [
+    {
+      "driver_description": "<one sentence>",
+      "evidence_mention_ids": [<up to 3 mention ids that exemplify this driver>],
+      "estimated_share_pct": <integer 0-100, approximate share of the spike attributable to this driver>
+    }
+  ],
+  "is_organic_or_amplified": "organic" | "amplified" | "uncertain",
+  "amplification_signals": [<list of signals e.g. "identical phrasing across accounts">],
+  "recommended_response_type": "address_concern" | "factual_correction" | "amplify_positive_counter" | "monitor_only" | "escalate_to_compliance",
+  "urgency": "low" | "medium" | "high" | "critical",
+  "rationale_for_urgency": "<one sentence>"
+}
+
+Rules:
+- Base every claim on the provided mention evidence — do not speculate
+- "amplified" = signs of coordinated activity (similar wording, account clustering, bot-like timing)
+- "organic" = diverse phrasing, varied accounts, natural distribution
+- recommended_response_type guides the next agent, not the human; be conservative
+- urgency=critical only when negative volume sustained or involves serious allegations
+- Avoid recommending content production for "monitor_only"; that is the point of it
+
+CONTEXT:
+Scheme: SCHEME_NAME
+District: DISTRICT_NAME
+Window analyzed: WINDOW_START to WINDOW_END
+Baseline (rolling 7-day avg): BASELINE_STATS
+Current window stats: CURRENT_STATS
+
+TOP MENTIONS DRIVING THE SPIKE (JSON array):
+SPIKE_MENTIONS_JSON
+
+JSON output:
+""",
+
+    "sentiment_analyser.source_credibility.v1": """\
+You are evaluating the credibility and reach of a content source for use in political sentiment aggregation. Output a credibility weight and rationale.
+
+Output strict JSON only. No prose. No markdown fences.
+
+Schema:
+{
+  "source_type": "mainstream_news" | "regional_news" | "citizen_journalist" | "social_media_individual" | "social_media_amplifier" | "official_government" | "political_party" | "ngo_advocacy" | "blog" | "unknown",
+  "estimated_reach": "national" | "state" | "district" | "local" | "niche" | "unknown",
+  "editorial_standards": "high" | "medium" | "low" | "none" | "unknown",
+  "known_political_lean": "left" | "right" | "ruling_party_aligned" | "opposition_aligned" | "independent" | "unknown",
+  "credibility_weight": <float 0.0 to 1.5>,
+  "reach_weight": <float 0.0 to 1.5>,
+  "rationale": "<2 sentences explaining the assigned weights, max 50 words>",
+  "requires_human_review": <true | false>,
+  "human_review_reason": "<one sentence if requires_human_review true; else empty string>"
+}
+
+Rules:
+- credibility_weight 1.0 is the baseline; 1.5 is high editorial credibility; 0.3 is low/unverified
+- reach_weight 1.0 is the baseline; raise for high-circulation national outlets, lower for niche
+- If you cannot determine the source from the data provided, mark fields "unknown" and require human review
+- Do NOT inflate weights without evidence — default to caution
+
+SOURCE INFORMATION:
+Source identifier: SOURCE_IDENTIFIER
+Domain or handle: SOURCE_HANDLE
+Sample content from this source (3-5 mentions):
+SOURCE_SAMPLES_JSON
+
+Any public information visible in the samples: bio text, follower counts, verified badges, etc.
+
+JSON output:
+""",
 }
 
 
