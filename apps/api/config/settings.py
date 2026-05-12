@@ -77,6 +77,7 @@ class Settings(BaseSettings):
     google_search_cx: str = ""
     newsapi_key: str = ""
     youtube_api_key: str = ""
+    tamil_output_enabled: bool = False
 
     gsc_service_account_json: str = ""
     gsc_site_url: str = ""

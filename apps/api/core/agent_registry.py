@@ -64,6 +64,10 @@ def import_all_agents() -> None:
         "agents.orchestration.auto_mode_engine",
         "agents.video.video_handoff",
         "agents.video.broll_selector",
+        "agents.sentiment.newsapi_collector",
+        "agents.sentiment.google_news_collector",
+        "agents.sentiment.youtube_collector",
+        "agents.sentiment.telegram_collector",
     ]
 
     for module in agent_modules:
