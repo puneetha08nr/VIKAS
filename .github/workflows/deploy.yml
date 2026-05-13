@@ -26,74 +26,58 @@ jobs:
       # ---------------------------------
       - name: Create .env file
         run: |
-          cat > .env << 'EOF'
-          # ── Database ────────────────────────────────────────────────
-          DATABASE_URL=${{ secrets.DATABASE_URL }}
-          ADMIN_DATABASE_URL=${{ secrets.ADMIN_DATABASE_URL }}
-          REDIS_URL=redis://redis:6379/0
-
-          # ── App ─────────────────────────────────────────────────────
-          ENV=production
-          LOG_LEVEL=INFO
-          DEV_AUTH_BYPASS=false
-          MOCK_LLM=false
-          DAILY_COST_LIMIT_USD=50.0
-          CORS_ORIGINS=["https://vikasai.elyts.tech"]
-          BASE_URL=https://vikasai.elyts.tech
-
-          # ── LLM Providers ───────────────────────────────────────────
-          LLM_PROVIDER=anthropic
-          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
-          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-          OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}
-
-          # ── Auth ────────────────────────────────────────────────────
-          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }}
-
-          # ── Encryption ──────────────────────────────────────────────
-          SETTINGS_ENCRYPTION_KEY=${{ secrets.SETTINGS_ENCRYPTION_KEY }}
-
-          # ── Storage ─────────────────────────────────────────────────
-          S3_BUCKET=vikas-media
-          AWS_REGION=us-east-1
-          AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-          # ── Notifications ───────────────────────────────────────────
-          SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_ALERT_CHANNEL=#vikas-alerts
-          SMTP_HOST=${{ secrets.SMTP_HOST }}
-          SMTP_PORT=587
-          SMTP_USER=${{ secrets.SMTP_USER }}
-          SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
-          VIDEO_TEAM_EMAIL=${{ secrets.VIDEO_TEAM_EMAIL }}
-
-          # ── Integrations ────────────────────────────────────────────
-          GOOGLE_SEARCH_API_KEY=${{ secrets.GOOGLE_SEARCH_API_KEY }}
-          GOOGLE_SEARCH_CX=${{ secrets.GOOGLE_SEARCH_CX }}
-          NEWSAPI_KEY=${{ secrets.NEWSAPI_KEY }}
-          YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }}
-          GSC_SERVICE_ACCOUNT_JSON=${{ secrets.GSC_SERVICE_ACCOUNT_JSON }}
-          GSC_SITE_URL=${{ secrets.GSC_SITE_URL }}
-          GSC_CLIENT_ID=${{ secrets.GSC_CLIENT_ID }}
-          GSC_CLIENT_SECRET=${{ secrets.GSC_CLIENT_SECRET }}
-          GSC_REFRESH_TOKEN=${{ secrets.GSC_REFRESH_TOKEN }}
-          GA4_PROPERTY_ID=${{ secrets.GA4_PROPERTY_ID }}
-          GA4_SERVICE_ACCOUNT_JSON=${{ secrets.GA4_SERVICE_ACCOUNT_JSON }}
-          WORDPRESS_URL=${{ secrets.WORDPRESS_URL }}
-          WORDPRESS_APP_PASSWORD=${{ secrets.WORDPRESS_APP_PASSWORD }}
-          AHREFS_API_KEY=${{ secrets.AHREFS_API_KEY }}
-          DATAFORSEO_LOGIN=${{ secrets.DATAFORSEO_LOGIN }}
-          DATAFORSEO_PASSWORD=${{ secrets.DATAFORSEO_PASSWORD }}
-
-          # ── Docker ──────────────────────────────────────────────────
-          DOCKER_IMAGE_PREFIX=${{ secrets.DOCKER_USERNAME }}
-          EOF
-          sed -i 's/^          //' .env
+          printf '%s\n' \
+            "DATABASE_URL=${{ secrets.DATABASE_URL }}" \
+            "ADMIN_DATABASE_URL=${{ secrets.ADMIN_DATABASE_URL }}" \
+            "REDIS_URL=redis://redis:6379/0" \
+            "CELERY_BROKER_URL=redis://redis:6379/0" \
+            "CELERY_RESULT_BACKEND=redis://redis:6379/0" \
+            "ENV=production" \
+            "LOG_LEVEL=INFO" \
+            "DEV_AUTH_BYPASS=true" \
+            "MOCK_LLM=false" \
+            "DAILY_COST_LIMIT_USD=50.0" \
+            "CORS_ORIGINS=[\"https://vikasai.elyts.tech\"]" \
+            "BASE_URL=https://vikasai.elyts.tech" \
+            "LLM_PROVIDER=anthropic" \
+            "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" \
+            "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" \
+            "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" \
+            "OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}" \
+            "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" \
+            "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" \
+            "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            "SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }}" \
+            "SETTINGS_ENCRYPTION_KEY=${{ secrets.SETTINGS_ENCRYPTION_KEY }}" \
+            "S3_BUCKET=vikas-media" \
+            "AWS_REGION=us-east-1" \
+            "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+            "SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}" \
+            "SLACK_ALERT_CHANNEL=#vikas-alerts" \
+            "SMTP_HOST=${{ secrets.SMTP_HOST }}" \
+            "SMTP_PORT=587" \
+            "SMTP_USER=${{ secrets.SMTP_USER }}" \
+            "SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}" \
+            "VIDEO_TEAM_EMAIL=${{ secrets.VIDEO_TEAM_EMAIL }}" \
+            "GOOGLE_SEARCH_API_KEY=${{ secrets.GOOGLE_SEARCH_API_KEY }}" \
+            "GOOGLE_SEARCH_CX=${{ secrets.GOOGLE_SEARCH_CX }}" \
+            "NEWSAPI_KEY=${{ secrets.NEWSAPI_KEY }}" \
+            "YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }}" \
+            "GSC_SERVICE_ACCOUNT_JSON=${{ secrets.GSC_SERVICE_ACCOUNT_JSON }}" \
+            "GSC_SITE_URL=${{ secrets.GSC_SITE_URL }}" \
+            "GSC_CLIENT_ID=${{ secrets.GSC_CLIENT_ID }}" \
+            "GSC_CLIENT_SECRET=${{ secrets.GSC_CLIENT_SECRET }}" \
+            "GSC_REFRESH_TOKEN=${{ secrets.GSC_REFRESH_TOKEN }}" \
+            "GA4_PROPERTY_ID=${{ secrets.GA4_PROPERTY_ID }}" \
+            "GA4_SERVICE_ACCOUNT_JSON=${{ secrets.GA4_SERVICE_ACCOUNT_JSON }}" \
+            "WORDPRESS_URL=${{ secrets.WORDPRESS_URL }}" \
+            "WORDPRESS_APP_PASSWORD=${{ secrets.WORDPRESS_APP_PASSWORD }}" \
+            "AHREFS_API_KEY=${{ secrets.AHREFS_API_KEY }}" \
+            "DATAFORSEO_LOGIN=${{ secrets.DATAFORSEO_LOGIN }}" \
+            "DATAFORSEO_PASSWORD=${{ secrets.DATAFORSEO_PASSWORD }}" \
+            "DOCKER_IMAGE_PREFIX=${{ secrets.DOCKER_USERNAME }}" \
+            > .env
 
       # ---------------------------------
       # Setup Docker Buildx
