@@ -19,15 +19,25 @@ _bearer = HTTPBearer(auto_error=False)
 
 async def _verify_supabase_token(token: str) -> str:
     """Verify Supabase JWT locally — no outbound HTTP call."""
+    secret = settings.supabase_jwt_secret
+    if not secret:
+        logger.error(
+            "SUPABASE_JWT_SECRET is not set — all token verification will fail. "
+            "Set it in .env from Supabase → Project Settings → API → JWT Secret."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Server misconfiguration: JWT secret not configured",
+        )
     try:
         payload = jwt.decode(
             token,
-            settings.supabase_jwt_secret,
+            secret,
             algorithms=["HS256"],
             options={"verify_aud": False},
         )
         return payload["sub"]
-    except PyJWTError:
+    except (PyJWTError, KeyError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
