@@ -16,10 +16,45 @@ All secrets are set under **Settings → Secrets and variables → Actions** in 
 
 ## Database
 
-| Secret | Description | Example |
-|---|---|---|
-| `DATABASE_URL` | asyncpg URL for the restricted `vikas_app` user (RLS enforced) | `postgresql+asyncpg://vikas_app:…@db:5432/vikas` |
-| `ADMIN_DATABASE_URL` | asyncpg URL for the `vikas` admin user (used by Alembic only) | `postgresql+asyncpg://vikas:…@db:5432/vikas` |
+### URL format
+
+```
+# Runtime API (RLS enforced via vikas_app role)
+DATABASE_URL=postgresql+asyncpg://vikas_app:<PASSWORD>@<HOST>:<PORT>/vikas
+
+# Alembic migrations only (superuser / doadmin — bypasses RLS)
+ADMIN_DATABASE_URL=postgresql+asyncpg://doadmin:<DOADMIN_PASSWORD>@<HOST>:<PORT>/vikas
+```
+
+On **DigitalOcean Managed PostgreSQL** the host looks like
+`db-vikas-do-user-XXXXX-0.g.db.ondigitalocean.com` and the port is `25060`.
+Copy the full connection string from the database dashboard and convert the
+scheme from `postgresql://` to `postgresql+asyncpg://`.
+
+### vikas_app password
+
+`vikas_app` is created by migration `d5e6f7a8b9c0` as a **NOLOGIN role** — it has no
+password in the migrations. Before the application can connect as `vikas_app` you must
+run these two SQL commands once on the production database (connect as `doadmin`):
+
+```sql
+ALTER ROLE vikas_app LOGIN;
+ALTER ROLE vikas_app PASSWORD 'your-strong-password-here';
+```
+
+Then set that same password in the `DATABASE_URL` secret above.
+
+> **Local dev default** — `settings.py` has `database_url: str = ""` (empty).
+> There is no localhost fallback baked in. Set `DATABASE_URL` in `.env` before
+> starting the API. The docker-compose dev stack creates the role as a login user
+> with password `vikas_app_dev` (see `docker-compose.yml` init SQL).
+
+### GitHub Action secrets
+
+| Secret | Description |
+|---|---|
+| `DATABASE_URL` | asyncpg URL for `vikas_app` (RLS-enforced, runtime only) |
+| `ADMIN_DATABASE_URL` | asyncpg URL for `doadmin` (Alembic migrations only; never used by the API at runtime) |
 
 ## Auth (Supabase)
 
