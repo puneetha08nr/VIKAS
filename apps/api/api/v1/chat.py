@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import UTC, datetime
+from pathlib import Path
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -21,12 +21,9 @@ from api.deps import get_current_org, get_db_for_org
 from config.settings import settings
 from core.cost_tracker import CostTracker
 from core.llm_router import LLMRouter
-from core.agent_base import AgentContext
 from db.models.organizations import Organization
 from integrations.email import EmailIntegration
 from integrations.slack_webhook import SlackWebhookIntegration
-from pathlib import Path
-import json as _json
 
 logger = logging.getLogger(__name__)
 
@@ -230,7 +227,11 @@ async def _get_db_context(org_id: str, db: AsyncSession) -> dict:
             {"org_id": org_id}
         )
         recent_runs = [
-            {"agent": r[0], "status": r[1], "cost": float(r[2] or 0), "duration_s": round((r[3] or 0) / 1000, 1)}
+            {
+                "agent": r[0], "status": r[1],
+                "cost": float(r[2] or 0),
+                "duration_s": round((r[3] or 0) / 1000, 1),
+            }
             for r in runs.fetchall()
         ]
 
@@ -303,12 +304,16 @@ def _user_system_prompt(db_context: dict) -> str:
     social = db_context.get('social', {})
     pending = db_context.get('pending_review', 0)
 
-    top_kw_text = (
-        f"{top_kw['keyword']} (volume: {top_kw['volume']}, KD: {top_kw['kd']}, intent: {top_kw['intent']})"
-        if top_kw else "None yet"
-    )
+    if top_kw:
+        top_kw_text = (
+            f"{top_kw['keyword']} "
+            f"(volume: {top_kw['volume']}, KD: {top_kw['kd']}, intent: {top_kw['intent']})"
+        )
+    else:
+        top_kw_text = "None yet"
+
     top_opp_text = (
-        f"{top_opp['keyword']} (score: {top_opp['score']:.1f}/10, status: {top_opp['status']})"
+        f"{top_opp['keyword']} (score: {top_opp['score']:.1f}/10)"
         if top_opp else "None yet"
     )
     latest_text = (
@@ -316,24 +321,39 @@ def _user_system_prompt(db_context: dict) -> str:
         if latest else "None yet"
     )
 
-    return f"""You are a friendly AI marketing assistant for Vikas — an AI-powered marketing platform.
+    kw_total = sum(kw.values())
+    kw_line = (
+        f"{kw_total} total — {kw.get('validated', 0)} validated, "
+        f"{kw.get('raw', 0)} raw, {kw.get('archived', 0)} archived"
+    )
+    art_total = sum(arts.values())
+    art_line = (
+        f"{art_total} total — {arts.get('draft', 0)} drafts, "
+        f"{arts.get('review', 0)} in review, {arts.get('approved', 0)} approved"
+    )
+    social_line = (
+        f"{social.get('linkedin_posts', 0)} LinkedIn posts, "
+        f"{social.get('twitter_threads', 0)} Twitter threads, "
+        f"{social.get('newsletters', 0)} newsletters"
+    )
 
-LIVE DATA FOR THIS ORGANIZATION (use this to answer statistics questions):
-- Keywords: {sum(kw.values())} total — {kw.get('validated', 0)} validated, {kw.get('raw', 0)} raw, {kw.get('archived', 0)} archived
+    return f"""You are a friendly AI marketing assistant for Vikas.
+
+LIVE DATA (use to answer statistics questions):
+- Keywords: {kw_line}
 - Top keyword: {top_kw_text}
 - Top opportunity: {top_opp_text}
-- Articles: {sum(arts.values())} total — {arts.get('draft', 0)} drafts, {arts.get('review', 0)} in review, {arts.get('approved', 0)} approved, {arts.get('published', 0)} published
+- Articles: {art_line}
 - Latest article: {latest_text}
 - Pending review: {pending} items
-- Social content: {social.get('linkedin_posts', 0)} LinkedIn posts, {social.get('twitter_threads', 0)} Twitter threads, {social.get('newsletters', 0)} newsletters
+- Social content: {social_line}
 - Today's AI cost: ${db_context.get('today_cost_usd', 0):.4f}
 
 GUIDELINES:
-- Use simple, non-technical language
-- Be concise — max 3 sentences per reply
-- Answer statistics questions directly using the live data above
-- If user asks about pricing or wants to talk to someone, ask for their contact details
-- Always end with a helpful follow-up question or suggestion"""
+- Use simple, non-technical language. Be concise — max 3 sentences per reply.
+- Answer statistics questions using the live data above.
+- If user wants to talk to someone, ask for their contact details.
+- Always end with a helpful follow-up question."""
 
 
 def _admin_system_prompt(db_context: dict) -> str:
@@ -349,6 +369,12 @@ def _admin_system_prompt(db_context: dict) -> str:
         for r in recent
     ]) or "  No recent runs"
 
+    social_line = (
+        f"LinkedIn {social.get('linkedin_posts', 0)}, "
+        f"Twitter {social.get('twitter_threads', 0)}, "
+        f"Newsletters {social.get('newsletters', 0)}"
+    )
+
     return f"""You are a technical AI assistant for the Vikas platform admin.
 
 LIVE SYSTEM STATE:
@@ -356,13 +382,14 @@ LIVE SYSTEM STATE:
 - Top keyword: {top_kw}
 - Articles: {arts}
 - Top opportunity: {top_opp}
-- Social: LinkedIn {social.get('linkedin_posts',0)}, Twitter {social.get('twitter_threads',0)}, Newsletters {social.get('newsletters',0)}
+- Social: {social_line}
 - Pending review: {db_context.get('pending_review', 0)}
 - Today's cost: ${db_context.get('today_cost_usd', 0):.4f}
 - Recent agent runs:
 {runs_text}
 
-You can help with agent run analysis, pipeline troubleshooting, LLM cost optimization, DB queries, and system status. Be technical and precise."""
+Help with agent runs, pipeline troubleshooting, LLM costs, DB queries.
+Be technical and precise."""
 
 
 # ── Main chat endpoint ─────────────────────────────────────────────────────────
@@ -489,7 +516,7 @@ async def _notify_admin_lead(body: LeadRequest) -> None:
         smtp_port=settings.smtp_port,
         smtp_user=settings.smtp_user,
         smtp_password=settings.smtp_password,
-        from_address="noreply@elyts.tech",
+        from_address=settings.smtp_from_address or settings.smtp_user,
     )
     sent = await email.send_email(admin_email, subject, html)
 
@@ -578,7 +605,8 @@ async def _save_message(
                 "INSERT INTO chat_messages "
                 "  (id, org_id, session_id, message, reply, role, intent, created_at) "
                 "VALUES "
-                "  (gen_random_uuid(), :org_id, :session_id, :message, :reply, :role, :intent, now())"
+                "  (gen_random_uuid(), :org_id, :session_id, "
+                "   :message, :reply, :role, :intent, now())"
             ),
             {
                 "org_id": org_id, "session_id": session_id,
@@ -593,10 +621,19 @@ async def _save_message(
 
 def _fallback_reply(message: str, role: str, intent: str) -> str:
     if role == "admin":
-        return "I'm having trouble connecting to the LLM right now. Check your API key configuration in .env and verify the Ollama/API service is running."
+        return (
+            "I'm having trouble connecting to the LLM right now. "
+            "Check your API key configuration in .env and verify the Ollama/API service is running."
+        )
     if intent == "lead_capture":
-        return "I'd love to connect you with our team! Could you share your name and phone number so someone can reach out to you?"
-    return "I'm here to help with your marketing questions! You can ask me about keywords, content creation, opportunities, or how Vikas works. What would you like to know?"
+        return (
+            "I'd love to connect you with our team! "
+            "Could you share your name and phone number so someone can reach out to you?"
+        )
+    return (
+        "I'm here to help with your marketing questions! "
+        "You can ask me about keywords, content, opportunities, or how Vikas works."
+    )
 
 
 def _get_suggestions(role: str, intent: str) -> list[str]:
@@ -609,7 +646,11 @@ def _get_suggestions(role: str, intent: str) -> list[str]:
     if intent == "lead_capture":
         return ["Tell me more about pricing", "Schedule a demo", "How does it work?"]
     if intent == "data_query":
-        return ["Show my top opportunities", "How many articles do I have?", "What keywords are validated?"]
+        return [
+            "Show my top opportunities",
+            "How many articles do I have?",
+            "What keywords are validated?",
+        ]
     return [
         "What can Vikas do for me?",
         "How does content generation work?",

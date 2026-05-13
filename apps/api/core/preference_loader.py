@@ -47,8 +47,6 @@ async def load_preferences(org_id: str, content_type: str, db: AsyncSession) -> 
             # Approval stats
             if key.endswith("_approval_stats"):
                 approval_rate = data.get("approval_rate", 0)
-                edit_rate = data.get("edit_rate", 0)
-                rejection_rate = data.get("rejection_rate", 0)
                 total = data.get("total", 0)
                 if total > 0:
                     lines.append(

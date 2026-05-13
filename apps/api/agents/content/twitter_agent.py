@@ -32,13 +32,17 @@ class TwitterAgent(BaseAgent):
         article_plan_id = str(ctx.params.get("article_plan_id", "")).strip()
 
         if not article_id and not article_plan_id:
-            return AgentResult(status="failed", error="article_id or article_plan_id param is required")
+            return AgentResult(
+                status="failed", error="article_id or article_plan_id param is required"
+            )
 
         # Prefer plan (cheaper) over full article
         if article_plan_id:
             source = await _load_plan(article_plan_id, ctx.org_id, ctx.db)
             if not source:
-                return AgentResult(status="failed", error=f"Article plan '{article_plan_id}' not found")
+                return AgentResult(
+                    status="failed", error=f"Article plan '{article_plan_id}' not found"
+                )
             article_id = article_plan_id
         else:
             source = await _load_article(article_id, ctx.org_id, ctx.db)
@@ -46,11 +50,12 @@ class TwitterAgent(BaseAgent):
                 return AgentResult(status="failed", error=f"Article '{article_id}' not found")
 
         learned_preferences = await load_preferences(ctx.org_id, "twitter", ctx.db)
+        body_src = (source.get("body_html", "") or source.get("outline_text", ""))[:2000]
         template = await PromptRegistry().get(self.name, ctx.db)
         prompt = (
             template
             .replace("ARTICLE_TITLE", source.get("title", ""))
-            .replace("ARTICLE_BODY", (source.get("body_html", "") or source.get("outline_text", ""))[:2000])
+            .replace("ARTICLE_BODY", body_src)
             .replace("KEYWORD", source.get("keyword", ""))
             .replace("LEARNED_PREFERENCES", learned_preferences)
         )
