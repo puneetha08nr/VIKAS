@@ -10,7 +10,6 @@ missing from the table, causing UndefinedColumnError at runtime.
 """
 from collections.abc import Sequence
 
-import sqlalchemy as sa
 from alembic import op
 
 revision: str = "p9q0r1s2t3u4"
