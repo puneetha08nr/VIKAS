@@ -19,7 +19,7 @@
 # CMD ["pnpm", "--filter", "@vikas/web", "dev"]
 
 
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
@@ -34,6 +34,15 @@ WORKDIR /app/apps/web
 
 # Install dependencies
 RUN pnpm install --no-frozen-lockfile
+
+# Build-time env vars — must be declared as ARG then promoted to ENV
+# so Next.js bakes NEXT_PUBLIC_* values into the JS bundle at build time.
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 # Build Next.js app
 RUN pnpm build

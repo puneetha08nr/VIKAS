@@ -573,7 +573,7 @@ If any of these fail, stop. Fix before proceeding.
 
 ## Agents Build Status
 
-34 agents registered as of 2026-05-05. Remaining not-built: image_creator, video_producer, thumbnail_generator (video production pipeline).
+42 agents registered as of 2026-05-12. Remaining not-built: image_creator, video_producer, thumbnail_generator (video production pipeline).
 
 ---
 
@@ -638,6 +638,14 @@ All 8 dashboard pages built as of 2026-05-05. Every page connects to real API en
 | auto_mode_engine | ✅ | n/a | n/a | ✅ | ⬜ | ⬜ | n/a | ⬜ |
 | video_handoff | ✅ | ✅ | n/a | ✅ | ⬜ | ⬜ | n/a | ⬜ |
 | broll_selector | ✅ | ✅ | n/a | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| sentiment_filter | ✅ | ✅ | n/a | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| polarity_classifier | ✅ | ✅ | ✅ | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| theme_tagger | ✅ | ✅ | ✅ | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| entity_extractor | ✅ | ✅ | ✅ | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| sentiment_aggregator | ✅ | ✅ | n/a | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| spike_detector | ✅ | n/a | ✅ | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| source_credibility_scorer | ✅ | ✅ | n/a | ✅ | ⬜ | ⬜ | ⬜ | ⬜ |
+| sentiment_orchestrator | ✅ | n/a | n/a | ✅ | ⬜ | ⬜ | n/a | ⬜ |
 
 ---
 

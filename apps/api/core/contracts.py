@@ -12,7 +12,9 @@ Convention:
 """
 from __future__ import annotations
 
-from pydantic import BaseModel, field_validator, model_validator
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # ── Shared mixin ──────────────────────────────────────────────────────────────
 
@@ -763,3 +765,297 @@ WordPressPublishOutput = WordPressPublisherOutput
 DocumentIngestionOutput = DocumentIngesterOutput
 RAGSearchOutput = RagSearcherOutput
 ContentDirectorLegacyOutput = ContentDirectorOutput
+
+
+# ── Sentiment analyser ────────────────────────────────────────────────────────
+
+_VALID_POLARITIES = frozenset({"positive", "negative", "neutral", "mixed"})
+_VALID_POLARITY_METHODS = frozenset({"vader", "llm_haiku", "llm_sonnet", "llm_batch"})
+
+
+class PolarityOutput(BaseModel):
+    """LLM polarity classification output — Prompts 1 and 2."""
+    polarity: Literal["positive", "negative", "neutral", "mixed"]
+    polarity_score: float = Field(ge=-1.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    reasoning: str = Field(default="", max_length=200)
+    contains_sarcasm: bool = False
+    is_about_scheme: bool = True
+
+    @field_validator("polarity", mode="before")
+    @classmethod
+    def _validate_polarity(cls, v: object) -> str:
+        s = str(v).lower().strip()
+        return s if s in _VALID_POLARITIES else "neutral"
+
+    @field_validator("polarity_score", "confidence", mode="before")
+    @classmethod
+    def _clamp_float(cls, v: object) -> float:
+        try:
+            return round(float(str(v)), 4)
+        except (ValueError, TypeError):
+            return 0.0
+
+
+class BatchPolarityItem(BaseModel):
+    """One item in a batch polarity response — Prompt 3."""
+    id: str
+    polarity: Literal["positive", "negative", "neutral", "mixed"]
+    polarity_score: float = Field(ge=-1.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    is_about_scheme: bool = True
+
+    @field_validator("polarity", mode="before")
+    @classmethod
+    def _validate_polarity(cls, v: object) -> str:
+        s = str(v).lower().strip()
+        return s if s in _VALID_POLARITIES else "neutral"
+
+    @field_validator("polarity_score", "confidence", mode="before")
+    @classmethod
+    def _clamp(cls, v: object) -> float:
+        try:
+            return round(float(str(v)), 4)
+        except (ValueError, TypeError):
+            return 0.0
+
+
+class BatchPolarityOutput(BaseModel):
+    """Wrapper for batch polarity results — Prompt 3."""
+    items: list[BatchPolarityItem] = []
+
+
+class ThemeMatchItem(BaseModel):
+    """One matched theme entry from theme_classifier."""
+    theme_key: str
+    confidence: float = Field(ge=0.0, le=1.0, default=0.0)
+    evidence_quote: str = ""
+
+    @field_validator("theme_key", mode="before")
+    @classmethod
+    def _strip(cls, v: object) -> str:
+        return str(v).strip().lower()
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _clamp(cls, v: object) -> float:
+        try:
+            return round(max(0.0, min(1.0, float(str(v)))), 4)
+        except (ValueError, TypeError):
+            return 0.0
+
+
+class ThemeClassifierOutput(BaseModel):
+    """Output of per-mention theme classifier — Prompt 5."""
+    matched_themes: list[ThemeMatchItem] = []
+    no_match_reason: str = ""
+
+
+class PersonMentioned(BaseModel):
+    """One person extracted by entity_extractor."""
+    name: str
+    role_if_stated: str = ""
+    polarity_toward: str = "not_evaluative"
+
+    @field_validator("polarity_toward", mode="before")
+    @classmethod
+    def _validate(cls, v: object) -> str:
+        valid = {"positive", "negative", "neutral", "not_evaluative"}
+        return str(v) if str(v) in valid else "not_evaluative"
+
+
+class FactualClaim(BaseModel):
+    """One factual claim extracted by entity_extractor."""
+    claim: str
+    is_verifiable: bool = False
+    claim_type: str = "event"
+    involves_numbers: bool = False
+
+    @field_validator("claim_type", mode="before")
+    @classmethod
+    def _validate(cls, v: object) -> str:
+        valid = {"statistic", "event", "promise", "accusation", "comparison"}
+        return str(v) if str(v) in valid else "event"
+
+
+class QuotedStatement(BaseModel):
+    """One quoted statement extracted by entity_extractor."""
+    speaker: str = ""
+    quote: str
+
+
+class EntityExtractorOutput(BaseModel):
+    """Entity and claim extraction output — Prompt 6."""
+    schemes_mentioned: list[str] = []
+    districts_mentioned: list[str] = []
+    persons_mentioned: list[PersonMentioned] = []
+    factual_claims: list[FactualClaim] = []
+    quoted_statements: list[QuotedStatement] = []
+
+
+class AnalyzedMentionOutput(BaseModel):
+    """Result written to analyzed_mentions after Stage 3 processing."""
+    relevant_mention_id: str
+    polarity: str = "neutral"
+    polarity_score: float = 0.0
+    polarity_confidence: float = 0.0
+    polarity_method: str = "vader"
+    contains_sarcasm: bool = False
+    themes: list[str] = []
+    is_about_scheme: bool = True
+
+    @field_validator("polarity", mode="before")
+    @classmethod
+    def _validate_polarity(cls, v: object) -> str:
+        s = str(v).lower().strip()
+        return s if s in _VALID_POLARITIES else "neutral"
+
+    @field_validator("polarity_method", mode="before")
+    @classmethod
+    def _validate_method(cls, v: object) -> str:
+        s = str(v).lower().strip()
+        return s if s in _VALID_POLARITY_METHODS else "vader"
+
+    @field_validator("polarity_score", "polarity_confidence", mode="before")
+    @classmethod
+    def _clamp(cls, v: object) -> float:
+        try:
+            return round(float(str(v)), 4)
+        except (ValueError, TypeError):
+            return 0.0
+
+
+class SentimentSignalOutput(BaseModel):
+    """One aggregated signal row produced by Stage 4 aggregator."""
+    scheme_key: str
+    district_key: str
+    signal_date: str
+    mention_count: int = 0
+    positive_count: int = 0
+    negative_count: int = 0
+    neutral_count: int = 0
+    mixed_count: int = 0
+    avg_polarity_score: float | None = None
+    weighted_avg_polarity_score: float | None = None
+    dominant_polarity: str = "neutral"
+    spike_detected: bool = False
+
+    @field_validator("dominant_polarity", mode="before")
+    @classmethod
+    def _validate(cls, v: object) -> str:
+        s = str(v).lower().strip()
+        return s if s in _VALID_POLARITIES else "neutral"
+
+    @field_validator(
+        "mention_count", "positive_count", "negative_count",
+        "neutral_count", "mixed_count", mode="before"
+    )
+    @classmethod
+    def _coerce_int(cls, v: object) -> int:
+        try:
+            return max(0, int(v))  # type: ignore[arg-type]
+        except (ValueError, TypeError):
+            return 0
+
+
+class SpikeDriverItem(BaseModel):
+    """One driver item from spike_analyzer output."""
+    driver_description: str
+    evidence_mention_ids: list[str] = []
+    estimated_share_pct: int = Field(ge=0, le=100, default=0)
+
+    @field_validator("estimated_share_pct", mode="before")
+    @classmethod
+    def _clamp(cls, v: object) -> int:
+        try:
+            return max(0, min(100, int(v)))  # type: ignore[arg-type]
+        except (ValueError, TypeError):
+            return 0
+
+
+_VALID_RESPONSE_TYPES = frozenset({
+    "address_concern", "factual_correction",
+    "amplify_positive_counter", "monitor_only", "escalate_to_compliance",
+})
+_VALID_URGENCY = frozenset({"low", "medium", "high", "critical"})
+
+
+class SpikeAnalyzerOutput(BaseModel):
+    """Output from spike_analyzer LLM — Prompt 7."""
+    situation_summary: str
+    primary_drivers: list[SpikeDriverItem] = []
+    is_organic_or_amplified: str = "uncertain"
+    amplification_signals: list[str] = []
+    recommended_response_type: str = "monitor_only"
+    urgency: str = "low"
+    rationale_for_urgency: str = ""
+
+    @field_validator("is_organic_or_amplified", mode="before")
+    @classmethod
+    def _validate_amplified(cls, v: object) -> str:
+        return str(v) if str(v) in {"organic", "amplified", "uncertain"} else "uncertain"
+
+    @field_validator("recommended_response_type", mode="before")
+    @classmethod
+    def _validate_response(cls, v: object) -> str:
+        return str(v) if str(v) in _VALID_RESPONSE_TYPES else "monitor_only"
+
+    @field_validator("urgency", mode="before")
+    @classmethod
+    def _validate_urgency(cls, v: object) -> str:
+        return str(v) if str(v) in _VALID_URGENCY else "low"
+
+
+_VALID_SOURCE_TYPES = frozenset({
+    "mainstream_news", "regional_news", "citizen_journalist",
+    "social_media_individual", "social_media_amplifier",
+    "official_government", "political_party", "ngo_advocacy",
+    "blog", "unknown",
+})
+_VALID_REACH = frozenset({"national", "state", "district", "local", "niche", "unknown"})
+_VALID_EDITORIAL = frozenset({"high", "medium", "low", "none", "unknown"})
+_VALID_LEAN = frozenset({
+    "left", "right", "ruling_party_aligned",
+    "opposition_aligned", "independent", "unknown",
+})
+
+
+class SourceCredibilityOutput(BaseModel):
+    """Source credibility scoring output — Prompt 8."""
+    source_type: str = "unknown"
+    estimated_reach: str = "unknown"
+    editorial_standards: str = "unknown"
+    known_political_lean: str = "unknown"
+    credibility_weight: float = Field(ge=0.0, le=1.5, default=1.0)
+    reach_weight: float = Field(ge=0.0, le=1.5, default=1.0)
+    rationale: str = ""
+    requires_human_review: bool = True
+    human_review_reason: str = ""
+
+    @field_validator("source_type", mode="before")
+    @classmethod
+    def _validate_source_type(cls, v: object) -> str:
+        return str(v) if str(v) in _VALID_SOURCE_TYPES else "unknown"
+
+    @field_validator("estimated_reach", mode="before")
+    @classmethod
+    def _validate_reach(cls, v: object) -> str:
+        return str(v) if str(v) in _VALID_REACH else "unknown"
+
+    @field_validator("editorial_standards", mode="before")
+    @classmethod
+    def _validate_editorial(cls, v: object) -> str:
+        return str(v) if str(v) in _VALID_EDITORIAL else "unknown"
+
+    @field_validator("known_political_lean", mode="before")
+    @classmethod
+    def _validate_lean(cls, v: object) -> str:
+        return str(v) if str(v) in _VALID_LEAN else "unknown"
+
+    @field_validator("credibility_weight", "reach_weight", mode="before")
+    @classmethod
+    def _clamp(cls, v: object) -> float:
+        try:
+            return round(max(0.0, min(1.5, float(str(v)))), 4)
+        except (ValueError, TypeError):
+            return 1.0

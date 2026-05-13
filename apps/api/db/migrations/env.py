@@ -3,20 +3,14 @@ import os
 from logging.config import fileConfig
 
 from dotenv import load_dotenv
-from sqlalchemy import pool
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlalchemy.ext.asyncio import create_async_engine
 
 load_dotenv()
 from alembic import context  # noqa: E402, I001
-from config.settings import settings  # noqa: E402
 from db.models import Base  # noqa: E402
 
 config = context.config
-
-# Migrations run as the admin user (DDL privileges). Override with ADMIN_DATABASE_URL.
-_admin_url = os.getenv("ADMIN_DATABASE_URL") or settings.admin_database_url
-config.set_main_option("sqlalchemy.url", _admin_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -46,13 +40,19 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    url = os.environ.get("ADMIN_DATABASE_URL") or os.environ.get("DATABASE_URL")
+
+    if not url:
+        raise RuntimeError(
+            "No database URL found. Set ADMIN_DATABASE_URL "
+            "or DATABASE_URL environment variable."
+        )
+
+    connectable = create_async_engine(url)
+
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
+
     await connectable.dispose()
 
 
