@@ -20,9 +20,8 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "keywords",
-        sa.Column("priority_score", sa.Float(), nullable=True),
+    op.execute(
+        "ALTER TABLE keywords ADD COLUMN IF NOT EXISTS priority_score FLOAT"
     )
 
 
