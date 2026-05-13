@@ -62,16 +62,23 @@ class ContentDirectorAgent(BaseAgent):
                 article_id = write_result.data.get("article_id", "")
                 results["article_id"] = article_id
 
-        # Stage C: social agents (parallel-ish, best-effort)
-        for agent_name, param_key in [
-            ("linkedin_agent", "article_id"),
-            ("twitter_agent", "article_id"),
-            ("newsletter_agent", "article_id"),
-            ("video_scriptwriter", "article_id"),
+        # Stage C: social agents
+        # LinkedIn + Twitter read from article_plan (outline) — cheaper, faster
+        # Newsletter reads from full article — needs depth
+        # video_scriptwriter reads from full article — needs content
+        plan_id = results.get("article_plan_id", "")
+
+        for agent_name, param_key, param_val in [
+            # LinkedIn + Twitter use plan outline → 70% fewer tokens
+            ("linkedin_agent",    "article_plan_id", plan_id),
+            ("twitter_agent",     "article_plan_id", plan_id),
+            # Newsletter + video need full article for depth
+            ("newsletter_agent",  "article_id",      article_id),
+            ("video_scriptwriter","article_id",       article_id),
         ]:
-            if not article_id:
+            if not param_val:
                 continue
-            sub_result = await _run_sub(ctx, agent_name, {param_key: article_id})
+            sub_result = await _run_sub(ctx, agent_name, {param_key: param_val})
             if sub_result.status == "failed":
                 errors.append(f"{agent_name}: {sub_result.error}")
             else:

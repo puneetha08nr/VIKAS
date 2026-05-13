@@ -59,8 +59,13 @@ function parseLinkedIn(content: string): string {
   if (trimmed.startsWith('{')) {
     try {
       const parsed = JSON.parse(trimmed)
-      return parsed.post_text || content
-    } catch (_) { /* ignore */ }
+      if (parsed.post_text) return parsed.post_text
+      if (parsed.content) return parsed.content
+    } catch (_) {
+      // try extracting post_text with regex fallback
+      const match = trimmed.match(/"post_text"\s*:\s*"([\s\S]*?)"(?:,|\s*\})/)
+      if (match) return match[1].replace(/\\n/g, '\n')
+    }
   }
   return content
 }

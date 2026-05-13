@@ -21,6 +21,7 @@ from sqlalchemy import text
 from core.agent_base import AgentContext, AgentResult, BaseAgent
 from core.agent_registry import register
 from core.contracts import ArticleWriterOutput
+from core.preference_loader import load_preferences
 from core.prompt_registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,9 @@ class ArticleWriterAgent(BaseAgent):
         )
         knowledge_chunks = "\n---\n".join(row[0] for row in chunks_result.fetchall()) or "None."
 
+        # Load learned preferences from human feedback
+        learned_preferences = await load_preferences(ctx.org_id, "article", ctx.db)
+
         template = await PromptRegistry().get(self.name, ctx.db)
 
         # Write each section
@@ -83,6 +87,7 @@ class ArticleWriterAgent(BaseAgent):
                 .replace("KNOWLEDGE_CHUNKS", knowledge_chunks[:1000])
                 .replace("INTERNAL_LINKS", "")
                 .replace("WORD_COUNT", str(per_section_words))
+                .replace("LEARNED_PREFERENCES", learned_preferences)
             )
 
             section_html = await self.call_llm(ctx, prompt)
@@ -100,6 +105,7 @@ class ArticleWriterAgent(BaseAgent):
                 .replace("KNOWLEDGE_CHUNKS", knowledge_chunks[:1000])
                 .replace("INTERNAL_LINKS", "")
                 .replace("WORD_COUNT", str(word_count_target))
+                .replace("LEARNED_PREFERENCES", learned_preferences)
             )
             content = await self.call_llm(ctx, prompt)
             sections_html.append(content.strip())

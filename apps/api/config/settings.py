@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     video_team_email: str = ""
+    admin_email: str = ""          # receives lead + chat notifications
 
     # ── Integrations ──────────────────────────────────────────────────────────
     gsc_service_account_json: str = ""

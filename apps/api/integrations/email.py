@@ -35,12 +35,14 @@ class EmailIntegration(BaseIntegration):
         smtp_port: int = 587,
         smtp_user: str = "",
         smtp_password: str = "",
+        from_address: str = "",
     ) -> None:
         super().__init__()
         self._smtp_host = smtp_host
         self._smtp_port = smtp_port
         self._smtp_user = smtp_user
         self._smtp_password = smtp_password
+        self._from_address = from_address or smtp_user
 
     async def health_check(self) -> bool:
         return bool(self._smtp_host and self._smtp_user and self._smtp_password)
@@ -86,7 +88,7 @@ class EmailIntegration(BaseIntegration):
         """Blocking SMTP send — called via run_in_executor."""
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"] = self._smtp_user
+        msg["From"] = self._from_address
         msg["To"] = to
         msg.attach(MIMEText(body_html, "html"))
 

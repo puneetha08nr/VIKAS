@@ -104,7 +104,9 @@ Brand voice: BRAND_VOICE
 Section outline: SECTION_OUTLINE
 Relevant knowledge: KNOWLEDGE_CHUNKS
 Internal link placeholders: INTERNAL_LINKS
-Target word count for this section: WORD_COUNT words\
+Target word count for this section: WORD_COUNT words
+
+LEARNED_PREFERENCES\
 """,
 
     "linkedin_agent": """\

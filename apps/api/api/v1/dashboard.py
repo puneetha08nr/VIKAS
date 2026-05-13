@@ -90,6 +90,112 @@ async def list_opportunities(
     ]
 
 
+# ── Article Plans ────────────────────────────────────────────────────────────
+
+@router.get("/article-plans/{plan_id}")
+async def get_article_plan(
+    plan_id: str,
+    org: Organization = Depends(get_current_org),
+    db: AsyncSession = Depends(get_db_for_org),
+) -> dict:
+    result = await db.execute(
+        text(
+            "SELECT id, keyword, title, meta_description, outline, "
+            "word_count_target, content_angle, cta, status, created_at "
+            "FROM article_plans WHERE id = CAST(:id AS uuid) AND org_id = :org_id"
+        ),
+        {"id": plan_id, "org_id": str(org.id)},
+    )
+    row = result.fetchone()
+    if not row:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Article plan not found")
+    return {
+        "id": str(row[0]),
+        "keyword": row[1] or "",
+        "title": row[2] or "",
+        "meta_description": row[3] or "",
+        "outline": row[4] or [],
+        "word_count_target": row[5] or 1800,
+        "content_angle": row[6] or "",
+        "cta": row[7] or "",
+        "status": row[8] or "",
+        "created_at": row[9].isoformat() if row[9] else None,
+    }
+
+
+@router.put("/article-plans/{plan_id}")
+async def update_article_plan(
+    plan_id: str,
+    body: dict,
+    org: Organization = Depends(get_current_org),
+    db: AsyncSession = Depends(get_db_for_org),
+) -> dict:
+    """Update outline sections and/or status of an article plan."""
+    sets = []
+    params: dict = {"id": plan_id, "org_id": str(org.id)}
+
+    if "outline" in body:
+        import json as _json
+        sets.append("outline = CAST(:outline AS jsonb)")
+        params["outline"] = _json.dumps(body["outline"])
+
+    if "status" in body:
+        sets.append("status = :status")
+        params["status"] = body["status"]
+
+    if "title" in body:
+        sets.append("title = :title")
+        params["title"] = body["title"]
+
+    if "cta" in body:
+        sets.append("cta = :cta")
+        params["cta"] = body["cta"]
+
+    if not sets:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    sets.append("updated_at = now()")
+    await db.execute(
+        text(
+            f"UPDATE article_plans SET {', '.join(sets)} "
+            "WHERE id = CAST(:id AS uuid) AND org_id = :org_id"
+        ),
+        params,
+    )
+    await db.commit()
+    return {"id": plan_id, "updated": True}
+
+
+@router.get("/article-plans")
+async def list_article_plans(
+    limit: int = Query(20, ge=1, le=100),
+    org: Organization = Depends(get_current_org),
+    db: AsyncSession = Depends(get_db_for_org),
+) -> list[dict]:
+    result = await db.execute(
+        text(
+            "SELECT id, keyword, title, word_count_target, status, created_at "
+            "FROM article_plans WHERE org_id = :org_id "
+            "ORDER BY created_at DESC LIMIT :limit"
+        ),
+        {"org_id": str(org.id), "limit": limit},
+    )
+    rows = result.fetchall()
+    return [
+        {
+            "id": str(r[0]),
+            "keyword": r[1] or "",
+            "title": r[2] or "",
+            "word_count_target": r[3] or 1800,
+            "status": r[4] or "",
+            "created_at": r[5].isoformat() if r[5] else None,
+        }
+        for r in rows
+    ]
+
+
 # ── Articles (raw SQL — no ORM model for articles table) ─────────────────────
 
 @router.get("/articles")
@@ -107,7 +213,7 @@ async def list_articles(
     result = await db.execute(
         text(
             "SELECT id, org_id, keyword, title, body_html, word_count, "
-            f"status, published_url, created_at FROM articles {where} "
+            f"status, published_url, created_at, article_plan_id FROM articles {where} "
             "ORDER BY created_at DESC LIMIT :limit"
         ),
         params,
@@ -124,6 +230,7 @@ async def list_articles(
             "status": r[6],
             "published_url": r[7],
             "created_at": r[8].isoformat() if r[8] else None,
+            "article_plan_id": str(r[9]) if r[9] else None,
         }
         for r in rows
     ]
@@ -346,6 +453,52 @@ async def update_newsletter(
     )
     await db.commit()
     return {"id": newsletter_id, "status": new_status, "published_url": mock_url}
+
+
+# ── Content Feedback (feeds preference_learner) ───────────────────────────────
+
+@router.post("/content-feedback")
+async def record_content_feedback(
+    body: dict,
+    org: Organization = Depends(get_current_org),
+    db: AsyncSession = Depends(get_db_for_org),
+) -> dict:
+    """Record human feedback on content — feeds the preference_learner agent.
+
+    body: {
+      content_type: 'article' | 'linkedin' | 'twitter' | 'newsletter'
+      content_id: uuid of the article/post
+      action: 'approved' | 'edited' | 'rejected'
+      notes: optional string describing what was changed or why rejected
+    }
+    """
+    content_type = body.get("content_type", "article")
+    content_id = body.get("content_id", "")
+    action = body.get("action", "approved")
+    notes = body.get("notes", "")
+
+    if action not in ("approved", "edited", "rejected"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="action must be approved, edited, or rejected")
+
+    await db.execute(
+        text(
+            "INSERT INTO content_feedback "
+            "  (id, org_id, content_type, content_id, action, notes, processed, created_at) "
+            "VALUES "
+            "  (gen_random_uuid(), :org_id, :content_type, CAST(:content_id AS uuid), "
+            "   :action, :notes, false, now())"
+        ),
+        {
+            "org_id": str(org.id),
+            "content_type": content_type,
+            "content_id": content_id,
+            "action": action,
+            "notes": notes,
+        },
+    )
+    await db.commit()
+    return {"status": "recorded", "action": action, "content_type": content_type}
 
 
 # ── Competitors ───────────────────────────────────────────────────────────────
