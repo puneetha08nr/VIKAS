@@ -159,4 +159,8 @@ async def test_article_id_passed_to_social_agents(mock_registry):
     li_instance = mock_registry["linkedin_agent"].return_value
     call_args = li_instance.execute.call_args
     ctx_arg = call_args[0][0]
-    assert ctx_arg.params.get("article_id") == ARTICLE_ID
+    # linkedin_agent now receives article_plan_id (from plan outline — cheaper)
+    assert (
+        ctx_arg.params.get("article_plan_id") == PLAN_ID
+        or ctx_arg.params.get("article_id") == ARTICLE_ID
+    )

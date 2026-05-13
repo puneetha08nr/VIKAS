@@ -1,0 +1,24 @@
+# Python virtual environments
+apps/api/.venv
+.venv
+**/.venv
+**/lib64
+
+# Node modules
+node_modules
+**/node_modules
+apps/web/.next
+apps/web/node_modules
+
+# Git
+.git
+.gitignore
+
+# Python cache
+**/__pycache__
+**/*.pyc
+**/*.pyo
+
+# Test artifacts
+tests/golden_traces
+*.log

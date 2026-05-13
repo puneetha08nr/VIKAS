@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     video_team_email: str = ""
+    admin_email: str = ""          # receives lead + chat notifications
+    smtp_from_address: str = ""    # sender address (e.g. noreply@yourdomain.com)
 
     # ── Integrations ──────────────────────────────────────────────────────────
     google_search_api_key: str = ""

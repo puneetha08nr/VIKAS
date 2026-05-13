@@ -16,6 +16,7 @@ from sqlalchemy import text
 from core.agent_base import AgentContext, AgentResult, BaseAgent
 from core.agent_registry import register
 from core.contracts import TwitterAgentOutput
+from core.preference_loader import load_preferences
 from core.prompt_registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
@@ -28,19 +29,35 @@ class TwitterAgent(BaseAgent):
 
     async def execute(self, ctx: AgentContext) -> AgentResult:
         article_id = str(ctx.params.get("article_id", "")).strip()
-        if not article_id:
-            return AgentResult(status="failed", error="article_id param is required")
+        article_plan_id = str(ctx.params.get("article_plan_id", "")).strip()
 
-        article = await _load_article(article_id, ctx.org_id, ctx.db)
-        if not article:
-            return AgentResult(status="failed", error=f"Article '{article_id}' not found")
+        if not article_id and not article_plan_id:
+            return AgentResult(
+                status="failed", error="article_id or article_plan_id param is required"
+            )
 
+        # Prefer plan (cheaper) over full article
+        if article_plan_id:
+            source = await _load_plan(article_plan_id, ctx.org_id, ctx.db)
+            if not source:
+                return AgentResult(
+                    status="failed", error=f"Article plan '{article_plan_id}' not found"
+                )
+            article_id = article_plan_id
+        else:
+            source = await _load_article(article_id, ctx.org_id, ctx.db)
+            if not source:
+                return AgentResult(status="failed", error=f"Article '{article_id}' not found")
+
+        learned_preferences = await load_preferences(ctx.org_id, "twitter", ctx.db)
+        body_src = (source.get("body_html", "") or source.get("outline_text", ""))[:2000]
         template = await PromptRegistry().get(self.name, ctx.db)
         prompt = (
             template
-            .replace("ARTICLE_TITLE", article.get("title", ""))
-            .replace("ARTICLE_BODY", (article.get("body_html", "") or "")[:2000])
-            .replace("KEYWORD", article.get("keyword", ""))
+            .replace("ARTICLE_TITLE", source.get("title", ""))
+            .replace("ARTICLE_BODY", body_src)
+            .replace("KEYWORD", source.get("keyword", ""))
+            .replace("LEARNED_PREFERENCES", learned_preferences)
         )
 
         raw = await self.call_llm(ctx, prompt)
@@ -87,6 +104,30 @@ async def _load_article(article_id: str, org_id: str, db) -> dict | None:
         "keyword": row[1] or "",
         "title": row[2] or "",
         "body_html": row[3] or "",
+    }
+
+
+async def _load_plan(plan_id: str, org_id: str, db) -> dict | None:
+    """Load article plan outline — used instead of full article to save tokens."""
+    result = await db.execute(
+        text("SELECT id, keyword, title, outline FROM article_plans "
+             "WHERE id = CAST(:id AS uuid) AND org_id = :org_id"),
+        {"id": plan_id, "org_id": org_id},
+    )
+    row = result.fetchone()
+    if not row:
+        return None
+    outline = row[3] or []
+    outline_text = "\n".join(
+        f"- {s.get('h2', '')}: {s.get('detail', '')}"
+        for s in (outline if isinstance(outline, list) else [])
+    )
+    return {
+        "id": str(row[0]),
+        "keyword": row[1] or "",
+        "title": row[2] or "",
+        "outline_text": outline_text,
+        "body_html": "",
     }
 
 
