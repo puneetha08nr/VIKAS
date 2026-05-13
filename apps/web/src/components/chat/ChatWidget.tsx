@@ -392,12 +392,7 @@ export function ChatWidget() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage(input)}
-              placeholder={
-                step === 'lead_name' ? 'Your name...' :
-                step === 'lead_phone' ? 'Your phone number...' :
-                step === 'lead_email' ? 'Your email...' :
-                'Type a message...'
-              }
+              placeholder="Type a message..."
               className="flex-1 text-sm border border-gray-200 rounded-full px-4 py-2 outline-none focus:border-indigo-400 transition-colors"
             />
             <button
