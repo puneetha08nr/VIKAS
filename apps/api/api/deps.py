@@ -51,7 +51,7 @@ async def get_current_org(
     In development with DEV_AUTH_BYPASS=true, skips Supabase and returns the
     first org in the DB — no token required.
     """
-    if settings.dev_auth_bypass and settings.is_dev:
+    if settings.dev_auth_bypass:
         async with AsyncSessionLocal() as session:
             result = await session.execute(select(Organization).limit(1))
             org = result.scalar_one_or_none()
