@@ -170,6 +170,7 @@ interface KeywordsTableProps {
   onCreateContent?: (keyword: KeywordRow) => void
   clusters?: KwCluster[]
   validatingId?: string | null
+  contentLoadingId?: string | null
 }
 
 export function KeywordsTable({
@@ -183,6 +184,7 @@ export function KeywordsTable({
   onCreateContent,
   clusters = [],
   validatingId = null,
+  contentLoadingId = null,
 }: KeywordsTableProps) {
   const tableRef = useRef<HTMLDivElement>(null)
   const allChecked =
@@ -355,16 +357,29 @@ export function KeywordsTable({
                         Validate
                       </button>
                     )}
-                    {!isValidatingRow && kw.status === 'validated' && (
+                    {!isValidatingRow && (kw.status === 'validated' || kw.status === 'clustered') && (
                       <button
                         type="button"
+                        disabled={contentLoadingId === kw.id}
                         onClick={(e) => { e.stopPropagation(); onCreateContent?.(kw) }}
-                        className="inline-flex items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-100 transition-colors"
+                        className="inline-flex items-center gap-1 rounded border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-100 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                       >
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 3v5M12 16v5M3 12h5M16 12h5M5.6 5.6l3.5 3.5M14.9 14.9l3.5 3.5M18.4 5.6l-3.5 3.5M9.1 14.9l-3.5 3.5" />
-                        </svg>
-                        Create content
+                        {contentLoadingId === kw.id ? (
+                          <>
+                            <svg className="animate-spin h-2.5 w-2.5 shrink-0" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" />
+                            </svg>
+                            Starting…
+                          </>
+                        ) : (
+                          <>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 3v5M12 16v5M3 12h5M16 12h5M5.6 5.6l3.5 3.5M14.9 14.9l3.5 3.5M18.4 5.6l-3.5 3.5M9.1 14.9l-3.5 3.5" />
+                            </svg>
+                            Create content
+                          </>
+                        )}
                       </button>
                     )}
                   </td>

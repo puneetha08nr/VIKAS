@@ -66,6 +66,8 @@ export default function KeywordsPage() {
   const [apiError, setApiError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isFetchingMetrics, setIsFetchingMetrics] = useState(false)
+  const [contentRunId, setContentRunId] = useState<string | null>(null)
+  const [contentLoadingKwId, setContentLoadingKwId] = useState<string | null>(null)
 
   // ── Queries ──────────────────────────────────────────────────────────────────
 
@@ -110,6 +112,14 @@ export default function KeywordsPage() {
     queryKey: ['run', validateRunId],
     queryFn: () => api.runs.get(validateRunId!),
     enabled: !!validateRunId,
+    refetchInterval: (query) =>
+      query.state.data?.status === 'running' ? 2000 : false,
+  })
+
+  const { data: contentRun } = useQuery({
+    queryKey: ['run', contentRunId],
+    queryFn: () => api.runs.get(contentRunId!),
+    enabled: !!contentRunId,
     refetchInterval: (query) =>
       query.state.data?.status === 'running' ? 2000 : false,
   })
@@ -168,6 +178,20 @@ export default function KeywordsPage() {
       setApiError(validateRun.error ?? 'Validation failed')
     }
   }, [validateRun?.status, invalidateKeywords])
+
+  useEffect(() => {
+    if (!contentRun) return
+    if (contentRun.status === 'success') {
+      setContentRunId(null)
+      setContentLoadingKwId(null)
+      setSuccessMessage('Content pipeline started — check Content page in ~15 min')
+    }
+    if (contentRun.status === 'failed') {
+      setContentRunId(null)
+      setContentLoadingKwId(null)
+      setApiError(contentRun.error ?? 'Content pipeline failed')
+    }
+  }, [contentRun?.status])
 
   // ── Selection helpers ────────────────────────────────────────────────────────
 
@@ -251,18 +275,21 @@ export default function KeywordsPage() {
   const handleCreateContent = async (keyword: KeywordRow) => {
     setApiError(null)
     setSuccessMessage(null)
+    setContentLoadingKwId(keyword.id)
     try {
       const opportunities = await api.opportunities.list({ limit: 200 })
       const opp = opportunities.find((o: any) => o.keyword_id === keyword.id)
       if (!opp) {
+        setContentLoadingKwId(null)
         setApiError(`No opportunity found for "${keyword.keyword}" — run opportunity scorer first`)
         return
       }
-      await axiosInstance.post('/api/v1/agents/content_director/run', {
+      const res = await axiosInstance.post('/api/v1/agents/content_director/run', {
         params: { opportunity_id: opp.id },
       })
-      setSuccessMessage(`Content pipeline started for "${keyword.keyword}" — check Content page in ~15 min`)
+      setContentRunId(res.data.run_id)
     } catch (err) {
+      setContentLoadingKwId(null)
       setApiError(err instanceof Error ? err.message : 'Failed to start content pipeline')
     }
   }
@@ -556,6 +583,7 @@ export default function KeywordsPage() {
           onCreateContent={handleCreateContent}
           clusters={KW_CLUSTERS}
           validatingId={validatingRowId}
+          contentLoadingId={contentLoadingKwId}
         />
       </div>
 
