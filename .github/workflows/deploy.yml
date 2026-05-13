@@ -56,8 +56,8 @@ jobs:
           file: infra/docker/Dockerfile.api
           push: true
           tags: |
-            ${{ secrets.DOCKER_USERNAME }}/vikas-api:latest
-            ${{ secrets.DOCKER_USERNAME }}/vikas-api:${{ github.sha }}
+            elytsllc/vikas-api:latest
+            elytsllc/vikas-api:${{ github.sha }}
 
       # ---------------------------------
       # Build WEB Image
@@ -69,8 +69,12 @@ jobs:
           file: infra/docker/Dockerfile.web
           push: true
           tags: |
-            ${{ secrets.DOCKER_USERNAME }}/vikas-web:latest
-            ${{ secrets.DOCKER_USERNAME }}/vikas-web:${{ github.sha }}
+            elytsllc/vikas-web:latest
+            elytsllc/vikas-web:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_API_URL=https://vikasai.elyts.tech
 
       # ---------------------------------
       # Create Deploy Directory
@@ -140,3 +144,19 @@ jobs:
             docker compose up -d --remove-orphans
 
             docker image prune -af
+
+      # ---------------------------------
+      # Run Database Migrations
+      # ---------------------------------
+      - name: Run Database Migrations
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: |
+            cd ${{ secrets.DEPLOY_DIR }}
+            docker compose exec -T \
+              -e ADMIN_DATABASE_URL="${{ secrets.ADMIN_DATABASE_URL }}" \
+              api uv run alembic upgrade head

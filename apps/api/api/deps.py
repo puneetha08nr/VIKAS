@@ -1,9 +1,10 @@
 import logging
 from collections.abc import AsyncGenerator
 
-import httpx
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt.exceptions import PyJWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,35 +18,20 @@ _bearer = HTTPBearer(auto_error=False)
 
 
 async def _verify_supabase_token(token: str) -> str:
-    """Call Supabase /auth/v1/user, raise 401 on failure, return supabase user id."""
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            f"{settings.supabase_url}/auth/v1/user",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "apikey": settings.supabase_service_role_key,
-            },
-            timeout=10.0,
+    """Verify Supabase JWT locally — no outbound HTTP call."""
+    try:
+        payload = jwt.decode(
+            token,
+            settings.supabase_jwt_secret,
+            algorithms=["HS256"],
+            options={"verify_aud": False},
         )
-
-    if resp.status_code != 200:
-        logger.warning(
-            "Supabase token verification failed: status=%d body=%s",
-            resp.status_code,
-            resp.text[:200],
-        )
+        return payload["sub"]
+    except PyJWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
         )
-
-    uid: str = resp.json().get("id", "")
-    if not uid:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not extract user ID from token",
-        )
-    return uid
 
 
 async def verify_token(
@@ -65,7 +51,7 @@ async def get_current_org(
     In development with DEV_AUTH_BYPASS=true, skips Supabase and returns the
     first org in the DB — no token required.
     """
-    if settings.dev_auth_bypass and settings.is_dev:
+    if settings.dev_auth_bypass:
         async with AsyncSessionLocal() as session:
             result = await session.execute(select(Organization).limit(1))
             org = result.scalar_one_or_none()

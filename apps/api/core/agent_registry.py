@@ -64,6 +64,18 @@ def import_all_agents() -> None:
         "agents.orchestration.auto_mode_engine",
         "agents.video.video_handoff",
         "agents.video.broll_selector",
+        "agents.sentiment.newsapi_collector",
+        "agents.sentiment.google_news_collector",
+        "agents.sentiment.youtube_collector",
+        "agents.sentiment.telegram_collector",
+        "agents.sentiment.sentiment_filter",
+        "agents.sentiment.polarity_classifier",
+        "agents.sentiment.theme_tagger",
+        "agents.sentiment.entity_extractor",
+        "agents.sentiment.aggregator",
+        "agents.sentiment.spike_detector",
+        "agents.sentiment.source_credibility_scorer",
+        "agents.sentiment.sentiment_orchestrator",
     ]
 
     for module in agent_modules:

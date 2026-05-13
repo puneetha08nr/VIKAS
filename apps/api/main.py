@@ -11,6 +11,12 @@ from routers import video_jobs, video_upload
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if not settings.dev_auth_bypass and not settings.supabase_jwt_secret:
+        raise RuntimeError(
+            "SUPABASE_JWT_SECRET is not set. "
+            "Get it from Supabase → Project Settings → API → JWT Secret, "
+            "or set DEV_AUTH_BYPASS=true for local development."
+        )
     yield
     await engine.dispose()
 
