@@ -54,6 +54,7 @@ class Keyword(Base):
     data_source: Mapped[str] = mapped_column(
         String(30), nullable=False, server_default="pending"
     )
+    priority_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
